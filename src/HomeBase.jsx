@@ -5,65 +5,81 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMgO1moxl7GgsK
 // ── SHEETS HELPERS ────────────────────────────────────────────────────────────
 async function sheetsRead(sheet) {
   const r = await fetch(`${APPS_SCRIPT_URL}?action=read&sheet=${encodeURIComponent(sheet)}`);
-  const j = await r.json(); if (!j.success) throw new Error(j.error); return j.data;
+  const j = await r.json();
+  if (!j.success) throw new Error(j.error);
+  return j.data;
 }
 async function sheetsAppend(sheet, data) {
-  const r = await fetch(`${APPS_SCRIPT_URL}?action=appendRow&sheet=${encodeURIComponent(sheet)}&data=${encodeURIComponent(JSON.stringify(data))}`);
-  const j = await r.json(); if (!j.success) throw new Error(j.error); return j.data;
+  const url = `${APPS_SCRIPT_URL}?action=appendRow&sheet=${encodeURIComponent(sheet)}&data=${encodeURIComponent(JSON.stringify(data))}`;
+  const r = await fetch(url);
+  const j = await r.json();
+  if (!j.success) throw new Error(j.error);
+  return j.data;
 }
 async function sheetsUpdate(sheet, col, val, data) {
-  const r = await fetch(`${APPS_SCRIPT_URL}?action=updateRow&sheet=${encodeURIComponent(sheet)}&matchCol=${encodeURIComponent(col)}&matchVal=${encodeURIComponent(String(val))}&data=${encodeURIComponent(JSON.stringify(data))}`);
-  const j = await r.json(); if (!j.success) throw new Error(j.error); return j.data;
+  const url = `${APPS_SCRIPT_URL}?action=updateRow&sheet=${encodeURIComponent(sheet)}&matchCol=${encodeURIComponent(col)}&matchVal=${encodeURIComponent(String(val))}&data=${encodeURIComponent(JSON.stringify(data))}`;
+  const r = await fetch(url);
+  const j = await r.json();
+  if (!j.success) throw new Error(j.error);
+  return j.data;
 }
 async function sheetsDelete(sheet, col, val) {
-  const r = await fetch(`${APPS_SCRIPT_URL}?action=deleteRow&sheet=${encodeURIComponent(sheet)}&matchCol=${encodeURIComponent(col)}&matchVal=${encodeURIComponent(String(val))}`);
-  const j = await r.json(); if (!j.success) throw new Error(j.error); return j.data;
+  const url = `${APPS_SCRIPT_URL}?action=deleteRow&sheet=${encodeURIComponent(sheet)}&matchCol=${encodeURIComponent(col)}&matchVal=${encodeURIComponent(String(val))}`;
+  const r = await fetch(url);
+  const j = await r.json();
+  if (!j.success) throw new Error(j.error);
+  return j.data;
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const DEFAULT_TYPES = ["Local","Trip","Outdoor","Entertainment","Food","Other"];
 
-// Returns YYYY-MM-DD for a local Date object (no timezone shift)
+// Safe local date → YYYY-MM-DD (no UTC shift)
 function localFmt(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
-// Today string in local time
 function todayStr() { return localFmt(new Date()); }
 
-// Build array of Date objects for a full month; nulls for leading empty cells (Mon-start)
+// Parse YYYY-MM-DD safely into local Date
+function parseDS(ds) {
+  const [y,m,d] = ds.split("-").map(Number);
+  return new Date(y, m-1, d);
+}
+
+// Month grid starting Sunday
 function monthDates(year, month) {
   const first = new Date(year, month, 1);
-  const last  = new Date(year, month + 1, 0);
-  const pad   = (first.getDay() + 6) % 7; // Mon=0
+  const last  = new Date(year, month+1, 0);
+  const pad   = first.getDay(); // Sun=0
   const days  = Array(pad).fill(null);
-  for (let d = 1; d <= last.getDate(); d++) days.push(new Date(year, month, d));
+  for (let d=1; d<=last.getDate(); d++) days.push(new Date(year, month, d));
   return days;
 }
 
-// Build 7-day week array starting Monday containing today
+// Current week Sun→Sat
 function weekDates() {
   const now = new Date();
-  const dow = (now.getDay() + 6) % 7; // Mon=0
+  const dow = now.getDay(); // Sun=0
   return Array.from({length:7}, (_,i) => {
-    const d = new Date(now); d.setDate(now.getDate() - dow + i); return d;
+    const d = new Date(now);
+    d.setDate(now.getDate() - dow + i);
+    return d;
   });
 }
 
-// Safe label for a date string "YYYY-MM-DD" — avoids Invalid Date from timezone issues
 function dateLabel(ds, opts) {
   if (!ds) return "";
-  const [y,m,d] = ds.split("-").map(Number);
-  return new Date(y, m-1, d).toLocaleDateString("en-US", opts);
+  return parseDS(ds).toLocaleDateString("en-US", opts);
 }
 
-// ── SHARED STYLE TOKENS ───────────────────────────────────────────────────────
-const PB  = { background:"#6ee7b7",color:"#0f1c14",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:13 };
-const GB  = { background:"transparent",color:"#9ca3af",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:13 };
-const NB  = { background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:6,color:"#f0e6d3",width:30,height:30,cursor:"pointer",fontSize:18,padding:0,lineHeight:"30px",textAlign:"center" };
-const INP = { background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:7,color:"#f0e6d3",padding:"8px 11px",fontSize:13,outline:"none",width:"100%",boxSizing:"border-box" };
-const SEL = { width:"100%",background:"#1f2937",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,color:"#f0e6d3",padding:"7px 10px",fontSize:13,outline:"none" };
-const H2  = { color:"#f0e6d3",fontFamily:"'Playfair Display',serif",margin:"0 0 14px",fontSize:20 };
+// ── STYLE TOKENS ──────────────────────────────────────────────────────────────
+const PB  = {background:"#6ee7b7",color:"#0f1c14",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:13};
+const GB  = {background:"transparent",color:"#9ca3af",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:13};
+const NB  = {background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:6,color:"#f0e6d3",width:30,height:30,cursor:"pointer",fontSize:18,padding:0,lineHeight:"30px",textAlign:"center"};
+const INP = {background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:7,color:"#f0e6d3",padding:"8px 11px",fontSize:13,outline:"none",width:"100%",boxSizing:"border-box"};
+const SEL = {width:"100%",background:"#1f2937",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,color:"#f0e6d3",padding:"7px 10px",fontSize:13,outline:"none"};
+const H2  = {color:"#f0e6d3",fontFamily:"'Playfair Display',serif",margin:"0 0 14px",fontSize:20};
 
 function SaveBadge({saving,saved,error}) {
   if (saving) return <span style={{fontSize:11,color:"#9ca3af"}}>Saving…</span>;
@@ -73,29 +89,36 @@ function SaveBadge({saving,saved,error}) {
 }
 
 function Sparkline({data, color="#6ee7b7"}) {
-  if (!data || data.length < 2) return <div style={{height:34,color:"#4b5563",fontSize:10,display:"flex",alignItems:"center"}}>no data</div>;
+  if (!data || data.length < 2) return <div style={{height:34,color:"#4b5563",fontSize:10,display:"flex",alignItems:"center"}}>no data yet</div>;
   const min=Math.min(...data), max=Math.max(...data), range=max-min||1, w=110, h=34;
   const pts = data.map((v,i)=>`${((i/(data.length-1))*w).toFixed(1)},${(h-((v-min)/range)*(h-8)-4).toFixed(1)}`).join(" ");
-  const lp  = pts.split(" ").at(-1).split(",");
+  const lp = pts.split(" ").at(-1).split(",");
   return <svg width={w} height={h}><polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx={lp[0]} cy={lp[1]} r="3.5" fill={color}/></svg>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// WEEKLY PLAN — always-on full month, edit panel below, kiosk-style
+// CALENDAR (was Weekly Plan)
+// - Starts Sunday
+// - Named "Calendar"
+// - Calendar cells show full "Matt 🏢 Office" text
+// - Click day → select it; edit panel below toggles open/closed
+// - When closed, selected day reads in large font
+// - Save actually works (upsert)
 // ═══════════════════════════════════════════════════════════════════════════════
 function WeeklyPlan() {
   const now = new Date();
   const [year,  setYear]  = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [plan,  setPlan]  = useState({});
-  const [sel,   setSel]   = useState(localFmt(now)); // always has a selected day
+  const [sel,   setSel]   = useState(localFmt(now));
+  const [editing, setEditing] = useState(false);
   const [sv,    setSv]    = useState({saving:false,saved:false,error:false});
 
   useEffect(() => {
     sheetsRead("WeeklyPlan").then(rows => {
       const map = {};
       rows.forEach(r => {
-        if (r.Date) map[r.Date] = {
+        if (r.Date) map[String(r.Date).trim()] = {
           mattLoc:  r.MattLocation  || "",
           aliceLoc: r.AliceLocation || "",
           dinner:   r.Dinner        || "",
@@ -103,44 +126,58 @@ function WeeklyPlan() {
         };
       });
       setPlan(map);
-    }).catch(() => {});
+    }).catch(e => console.error("WeeklyPlan load error:", e));
   }, []);
 
-  const days = monthDates(year, month);
-  const todayDS = todayStr();
-  const locIcon = loc => loc === "Office" ? "🏢" : loc === "Home" ? "🏠" : "";
-  const entry   = plan[sel] || { mattLoc:"", aliceLoc:"", dinner:"", appts:"" };
+  const days     = monthDates(year, month);
+  const todayDS  = todayStr();
+  const locIcon  = loc => loc==="Office" ? "🏢" : loc==="Home" ? "🏠" : "";
+  const entry    = plan[sel] || {mattLoc:"",aliceLoc:"",dinner:"",appts:""};
+  const selLabel = dateLabel(sel, {weekday:"long",month:"long",day:"numeric"});
+  const monthLabel = new Date(year, month, 1).toLocaleDateString("en-US",{month:"long",year:"numeric"});
 
-  const prevMonth = () => {
-    if (month === 0) { setYear(y => y-1); setMonth(11); } else setMonth(m => m-1);
-  };
-  const nextMonth = () => {
-    if (month === 11) { setYear(y => y+1); setMonth(0); } else setMonth(m => m+1);
+  const prevMonth = () => { if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1); };
+  const nextMonth = () => { if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1); };
+
+  const selectDay = (ds) => {
+    if (sel === ds) {
+      setEditing(e => !e); // toggle edit panel if same day tapped again
+    } else {
+      setSel(ds);
+      setEditing(false); // just select, don't auto-open edit
+    }
   };
 
   const setField = (key, val) =>
-    setPlan(p => ({ ...p, [sel]: { ...(p[sel]||{}), [key]: val } }));
+    setPlan(p => ({...p, [sel]: {...(p[sel]||{}), [key]: val}}));
 
   const saveDay = async () => {
     const e = plan[sel] || {};
-    const row = { Date:sel, MattLocation:e.mattLoc||"", AliceLocation:e.aliceLoc||"", Dinner:e.dinner||"", Appointments:e.appts||"" };
+    const row = {
+      Date: sel,
+      MattLocation:  e.mattLoc  || "",
+      AliceLocation: e.aliceLoc || "",
+      Dinner:        e.dinner   || "",
+      Appointments:  e.appts    || "",
+    };
     setSv({saving:true,saved:false,error:false});
     try {
-      const res = await sheetsUpdate("WeeklyPlan","Date",sel,row);
+      const res = await sheetsUpdate("WeeklyPlan", "Date", sel, row);
       if (!res.updated) await sheetsAppend("WeeklyPlan", row);
       setSv({saving:false,saved:true,error:false});
       setTimeout(() => setSv(s=>({...s,saved:false})), 2500);
-    } catch(e) { console.error(e); setSv({saving:false,saved:false,error:true}); }
+      setEditing(false);
+    } catch(err) {
+      console.error("Save error:", err);
+      setSv({saving:false,saved:false,error:true});
+    }
   };
-
-  const monthLabel = new Date(year, month, 1).toLocaleDateString("en-US",{month:"long",year:"numeric"});
-  const selLabel   = dateLabel(sel, {weekday:"long",month:"long",day:"numeric"});
 
   return (
     <div>
-      {/* Month nav */}
+      {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-        <h2 style={{...H2,margin:0}}>Monthly Plan</h2>
+        <h2 style={{...H2,margin:0}}>Calendar</h2>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <button onClick={prevMonth} style={NB}>‹</button>
           <span style={{color:"#f0e6d3",fontSize:13,fontWeight:600,minWidth:130,textAlign:"center"}}>{monthLabel}</span>
@@ -148,79 +185,104 @@ function WeeklyPlan() {
         </div>
       </div>
 
-      {/* Day headers */}
+      {/* Day-of-week headers — Sun first */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
-        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d =>
+        {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d =>
           <div key={d} style={{textAlign:"center",fontSize:9,color:"#6b7280",paddingBottom:3,letterSpacing:.5}}>{d}</div>
         )}
       </div>
 
       {/* Calendar grid */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:12}}>
         {days.map((d,i) => {
-          if (!d) return <div key={`e${i}`} />;
-          const ds      = localFmt(d);
-          const isToday = ds === todayDS;
-          const isSel   = ds === sel;
+          if (!d) return <div key={`e${i}`}/>;
+          const ds     = localFmt(d);
+          const isToday = ds===todayDS;
+          const isSel   = ds===sel;
           const e       = plan[ds] || {};
           return (
-            <div key={ds} onClick={() => setSel(ds)}
+            <div key={ds} onClick={() => selectDay(ds)}
               style={{
                 background: isSel ? "rgba(110,231,183,0.22)" : isToday ? "rgba(110,231,183,0.1)" : "rgba(255,255,255,0.04)",
-                border:`1px solid ${isSel ? "rgba(110,231,183,0.8)" : isToday ? "rgba(110,231,183,0.4)" : "rgba(255,255,255,0.07)"}`,
-                borderRadius:7, padding:"5px 4px", cursor:"pointer", minHeight:68, transition:"all 0.12s",
+                border:`1px solid ${isSel?"rgba(110,231,183,0.8)":isToday?"rgba(110,231,183,0.4)":"rgba(255,255,255,0.07)"}`,
+                borderRadius:7,padding:"5px 4px",cursor:"pointer",minHeight:72,transition:"all 0.12s",
               }}>
-              <div style={{fontSize:13,fontWeight:700,color:isSel?"#6ee7b7":isToday?"#a7f3d0":"#f0e6d3",marginBottom:2}}>{d.getDate()}</div>
-              {e.mattLoc  && <div style={{fontSize:8,color:"#93c5fd",lineHeight:1.4}}>{locIcon(e.mattLoc)} M</div>}
-              {e.aliceLoc && <div style={{fontSize:8,color:"#f9a8d4",lineHeight:1.4}}>{locIcon(e.aliceLoc)} A</div>}
-              {e.dinner   && <div style={{fontSize:8,color:"#fcd34d",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.4}}>🍽 {e.dinner}</div>}
-              {e.appts    && <div style={{fontSize:8,color:"#fb923c",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.4}}>📌 {e.appts}</div>}
+              <div style={{fontSize:12,fontWeight:700,color:isSel?"#6ee7b7":isToday?"#a7f3d0":"#f0e6d3",marginBottom:2}}>{d.getDate()}</div>
+              {e.mattLoc  && <div style={{fontSize:8,color:"#93c5fd",lineHeight:1.5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{locIcon(e.mattLoc)} Matt {e.mattLoc}</div>}
+              {e.aliceLoc && <div style={{fontSize:8,color:"#f9a8d4",lineHeight:1.5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{locIcon(e.aliceLoc)} Alice {e.aliceLoc}</div>}
+              {e.dinner   && <div style={{fontSize:8,color:"#fcd34d",lineHeight:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🍽 {e.dinner}</div>}
+              {e.appts    && <div style={{fontSize:8,color:"#fb923c",lineHeight:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📌 {e.appts}</div>}
             </div>
           );
         })}
       </div>
 
-      {/* Always-visible edit panel */}
-      <div style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(110,231,183,0.2)",borderRadius:14,padding:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <span style={{color:"#f0e6d3",fontWeight:700,fontSize:15}}>{selLabel}</span>
-          <SaveBadge {...sv}/>
-        </div>
+      {/* Selected day display — always visible */}
+      <div style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${editing?"rgba(110,231,183,0.35)":"rgba(255,255,255,0.09)"}`,borderRadius:14,overflow:"hidden",transition:"all 0.2s"}}>
 
-        {/* Location toggles */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-          {[["Matt","mattLoc","#93c5fd"],["Alice","aliceLoc","#f9a8d4"]].map(([name,key,color]) => (
-            <div key={key}>
-              <div style={{fontSize:11,color,fontWeight:600,marginBottom:6}}>{name}</div>
-              <div style={{display:"flex",gap:5}}>
-                {[["🏢","Office"],["🏠","Home"]].map(([icon,val]) => {
-                  const active = entry[key] === val;
-                  return (
-                    <button key={val} onClick={() => setField(key, active ? "" : val)}
-                      style={{flex:1,background:active?`${color}25`:"rgba(255,255,255,0.06)",
-                        border:`1px solid ${active?color:"rgba(255,255,255,0.1)"}`,
-                        borderRadius:8,color:active?color:"#6b7280",padding:"9px 0",
-                        cursor:"pointer",fontSize:13,fontWeight:active?700:400,transition:"all 0.15s"}}>
-                      {icon} {val}
-                    </button>
-                  );
-                })}
+        {/* Day summary row — always shown */}
+        <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:16,fontWeight:700,color:"#f0e6d3",marginBottom:6}}>{selLabel}</div>
+            {!editing && (
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {entry.mattLoc  && <span style={{fontSize:13,color:"#93c5fd"}}>{locIcon(entry.mattLoc)} Matt {entry.mattLoc}</span>}
+                {entry.aliceLoc && <span style={{fontSize:13,color:"#f9a8d4"}}>{locIcon(entry.aliceLoc)} Alice {entry.aliceLoc}</span>}
+                {entry.dinner   && <span style={{fontSize:13,color:"#fcd34d"}}>🍽 {entry.dinner}</span>}
+                {entry.appts    && <span style={{fontSize:13,color:"#fb923c"}}>📌 {entry.appts}</span>}
+                {!entry.mattLoc && !entry.aliceLoc && !entry.dinner && !entry.appts &&
+                  <span style={{fontSize:12,color:"#4b5563",fontStyle:"italic"}}>Nothing planned — tap Edit to add</span>}
               </div>
-            </div>
-          ))}
+            )}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginLeft:12}}>
+            {editing && <SaveBadge {...sv}/>}
+            <button onClick={() => setEditing(e=>!e)}
+              style={{...GB,fontSize:11,padding:"6px 12px"}}>
+              {editing ? "✕ Close" : "✏️ Edit"}
+            </button>
+          </div>
         </div>
 
-        {/* Dinner + Appointments */}
-        {[["🍽  Dinner","dinner","e.g. Pasta night"],["📌  Appointments","appts","e.g. Dr. Smith 2pm"]].map(([label,key,ph]) => (
-          <div key={key} style={{marginBottom:10}}>
-            <label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:4}}>{label}</label>
-            <input value={entry[key]||""} onChange={e => setField(key, e.target.value)}
-              onKeyDown={e => e.key==="Enter" && saveDay()}
-              placeholder={ph} style={INP}/>
-          </div>
-        ))}
+        {/* Edit panel — shown only when editing */}
+        {editing && (
+          <div style={{borderTop:"1px solid rgba(255,255,255,0.08)",padding:"14px 16px"}}>
+            {/* Location toggles */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              {[["Matt","mattLoc","#93c5fd"],["Alice","aliceLoc","#f9a8d4"]].map(([name,key,color]) => (
+                <div key={key}>
+                  <div style={{fontSize:11,color,fontWeight:600,marginBottom:6}}>{name}</div>
+                  <div style={{display:"flex",gap:5}}>
+                    {[["🏢","Office"],["🏠","Home"]].map(([icon,val]) => {
+                      const active = entry[key]===val;
+                      return (
+                        <button key={val} onClick={() => setField(key, active?"":val)}
+                          style={{flex:1,background:active?`${color}25`:"rgba(255,255,255,0.06)",
+                            border:`1px solid ${active?color:"rgba(255,255,255,0.1)"}`,
+                            borderRadius:8,color:active?color:"#6b7280",padding:"9px 0",
+                            cursor:"pointer",fontSize:13,fontWeight:active?700:400,transition:"all 0.15s"}}>
+                          {icon} {val}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
 
-        <button onClick={saveDay} style={{...PB,width:"100%",marginTop:2}}>Save Day</button>
+            {[["🍽  Dinner","dinner","e.g. Pasta night"],["📌  Appointments","appts","e.g. Dr. Smith 2pm"]].map(([label,key,ph]) => (
+              <div key={key} style={{marginBottom:10}}>
+                <label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:4}}>{label}</label>
+                <input value={entry[key]||""} onChange={e=>setField(key,e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&saveDay()} placeholder={ph} style={INP}/>
+              </div>
+            ))}
+
+            <button onClick={saveDay} style={{...PB,width:"100%",marginTop:4}}>
+              {sv.saving ? "Saving…" : "Save Day"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -230,13 +292,13 @@ function WeeklyPlan() {
 // TO-DO
 // ═══════════════════════════════════════════════════════════════════════════════
 function Todos() {
-  const [todos, setTodos] = useState([]);
-  const [input, setInput] = useState("");
-  useEffect(() => { sheetsRead("Todos").then(rows => setTodos(rows.map(r => ({id:String(r.ID),text:r.Text,done:r.Done===true||r.Done==="TRUE",date:r.Date})))).catch(()=>{}); }, []);
-  const toggle = async id => { const t=todos.find(x=>x.id===id), nd=!t.done; setTodos(ts=>ts.map(x=>x.id===id?{...x,done:nd}:x)); try{await sheetsUpdate("Todos","ID",id,{Done:nd?"TRUE":"FALSE"});}catch(e){console.error(e);} };
-  const add    = async () => { if(!input.trim())return; const nt={id:String(Date.now()),text:input.trim(),done:false,date:todayStr()}; setTodos(ts=>[...ts,nt]); setInput(""); try{await sheetsAppend("Todos",{ID:nt.id,Text:nt.text,Done:"FALSE",Date:nt.date});}catch(e){console.error(e);} };
-  const remove = async id => { setTodos(ts=>ts.filter(x=>x.id!==id)); try{await sheetsDelete("Todos","ID",id);}catch(e){console.error(e);} };
-  const pending = todos.filter(t=>!t.done), done = todos.filter(t=>t.done);
+  const [todos,setTodos]=useState([]);
+  const [input,setInput]=useState("");
+  useEffect(()=>{sheetsRead("Todos").then(rows=>setTodos(rows.map(r=>({id:String(r.ID),text:r.Text,done:r.Done===true||r.Done==="TRUE",date:r.Date})))).catch(()=>{});},[]);
+  const toggle=async id=>{const t=todos.find(x=>x.id===id),nd=!t.done;setTodos(ts=>ts.map(x=>x.id===id?{...x,done:nd}:x));try{await sheetsUpdate("Todos","ID",id,{Done:nd?"TRUE":"FALSE"});}catch(e){console.error(e);}};
+  const add=async()=>{if(!input.trim())return;const nt={id:String(Date.now()),text:input.trim(),done:false,date:todayStr()};setTodos(ts=>[...ts,nt]);setInput("");try{await sheetsAppend("Todos",{ID:nt.id,Text:nt.text,Done:"FALSE",Date:nt.date});}catch(e){console.error(e);}};
+  const remove=async id=>{setTodos(ts=>ts.filter(x=>x.id!==id));try{await sheetsDelete("Todos","ID",id);}catch(e){console.error(e);}};
+  const pending=todos.filter(t=>!t.done),done=todos.filter(t=>t.done);
   return (
     <div>
       <h2 style={H2}>Today's Tasks</h2>
@@ -268,8 +330,7 @@ function Todos() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// FITNESS — meds at top, weekly workout view (tap day to log or edit workout),
-//           forever trend sparklines, inline workout editor per day
+// FITNESS — meds at top + editable, weekly strip, workout editor, all-time trends
 // ═══════════════════════════════════════════════════════════════════════════════
 function Fitness() {
   const now      = new Date();
@@ -277,6 +338,10 @@ function Fitness() {
   const todayName = DAY_NAMES[now.getDay()];
 
   const [meds,        setMeds]        = useState({am:"",pm:""});
+  const [editingMeds, setEditingMeds] = useState(false);
+  const [medsForm,    setMedsForm]    = useState({am:"",pm:""});
+  const [medsSv,      setMedsSv]      = useState({saving:false,saved:false,error:false});
+
   const [fitnessData, setFitnessData] = useState([
     {day:"Monday",group:"Chest & Triceps",exercises:"Bench Press, Push-ups, Tricep Dips"},
     {day:"Tuesday",group:"Back & Biceps",exercises:"Pull-ups, Rows, Curls"},
@@ -286,148 +351,164 @@ function Fitness() {
     {day:"Saturday",group:"Full Body",exercises:"Deadlifts, Pull-ups, Dips"},
     {day:"Sunday",group:"Rest / Stretch",exercises:"Yoga, Walk, Foam Roll"},
   ]);
-  const [healthLog,   setHealthLog]   = useState([]);
-  const [selDay,      setSelDay]      = useState(todayDS);  // selected date string
-  const [logForm,     setLogForm]     = useState({mattWeight:"",mattBPSys:"",mattBPDia:"",aliceBPSys:"",aliceBPDia:""});
-  const [editingWkt,  setEditingWkt]  = useState(null); // day name being edited
-  const [wktForm,     setWktForm]     = useState({group:"",exercises:""});
-  const [sv,          setSv]          = useState({saving:false,saved:false,error:false});
-  const [wktSv,       setWktSv]       = useState({saving:false,saved:false,error:false});
+  const [healthLog,  setHealthLog]  = useState([]);
+  const [selDay,     setSelDay]     = useState(todayDS);
+  const [logForm,    setLogForm]    = useState({mattWeight:"",mattBPSys:"",mattBPDia:"",aliceBPSys:"",aliceBPDia:""});
+  const [editingWkt, setEditingWkt] = useState(null);
+  const [wktForm,    setWktForm]    = useState({group:"",exercises:""});
+  const [sv,         setSv]         = useState({saving:false,saved:false,error:false});
+  const [wktSv,      setWktSv]      = useState({saving:false,saved:false,error:false});
 
-  useEffect(() => {
-    sheetsRead("Fitness").then(rows => {
-      if (rows.length) {
-        setFitnessData(rows.map(r => ({day:r.Day,group:r.MuscleGroup||"",exercises:r.Exercises||""})));
-        const mon = rows.find(r => r.Day==="Monday");
-        if (mon) setMeds({am:mon.AMmeds||"",pm:mon.PMmeds||""});
+  useEffect(()=>{
+    sheetsRead("Fitness").then(rows=>{
+      if(rows.length){
+        setFitnessData(rows.map(r=>({day:r.Day,group:r.MuscleGroup||"",exercises:r.Exercises||""})));
+        const mon=rows.find(r=>r.Day==="Monday");
+        if(mon){
+          setMeds({am:mon.AMmeds||"",pm:mon.PMmeds||""});
+          setMedsForm({am:mon.AMmeds||"",pm:mon.PMmeds||""});
+        }
       }
     }).catch(()=>{});
-    sheetsRead("HealthLog").then(rows =>
-      setHealthLog(rows.map(r => ({
-        date:r.Date, mattWeight:parseFloat(r.MattWeight)||null,
-        mattBPSys:parseInt(r.MattBPSys)||null, mattBPDia:parseInt(r.MattBPDia)||null,
-        aliceBPSys:parseInt(r.AliceBPSys)||null, aliceBPDia:parseInt(r.AliceBPDia)||null,
+    sheetsRead("HealthLog").then(rows=>
+      setHealthLog(rows.map(r=>({
+        date:r.Date,mattWeight:parseFloat(r.MattWeight)||null,
+        mattBPSys:parseInt(r.MattBPSys)||null,mattBPDia:parseInt(r.MattBPDia)||null,
+        aliceBPSys:parseInt(r.AliceBPSys)||null,aliceBPDia:parseInt(r.AliceBPDia)||null,
       })))
     ).catch(()=>{});
-  }, []);
+  },[]);
 
-  // Build the current week Mon→Sun
-  const week = weekDates();
+  const week = weekDates(); // Sun→Sat
 
   const openDay = ds => {
     setSelDay(ds);
-    const ex = healthLog.find(h => h.date===ds) || {};
-    setLogForm({
-      mattWeight:  ex.mattWeight  || "",
-      mattBPSys:   ex.mattBPSys   || "",
-      mattBPDia:   ex.mattBPDia   || "",
-      aliceBPSys:  ex.aliceBPSys  || "",
-      aliceBPDia:  ex.aliceBPDia  || "",
-    });
+    const ex=healthLog.find(h=>h.date===ds)||{};
+    setLogForm({mattWeight:ex.mattWeight||"",mattBPSys:ex.mattBPSys||"",mattBPDia:ex.mattBPDia||"",aliceBPSys:ex.aliceBPSys||"",aliceBPDia:ex.aliceBPDia||""});
     setEditingWkt(null);
   };
 
   const saveLog = async () => {
-    const entry = {
-      date:selDay,
-      mattWeight:  parseFloat(logForm.mattWeight)||null,
-      mattBPSys:   parseInt(logForm.mattBPSys)||null,
-      mattBPDia:   parseInt(logForm.mattBPDia)||null,
-      aliceBPSys:  parseInt(logForm.aliceBPSys)||null,
-      aliceBPDia:  parseInt(logForm.aliceBPDia)||null,
-    };
-    setHealthLog(h => {
-      const i = h.findIndex(x => x.date===selDay);
-      if (i>=0) { const n=[...h]; n[i]=entry; return n; }
-      return [...h,entry].sort((a,b)=>a.date.localeCompare(b.date));
-    });
+    const entry={date:selDay,mattWeight:parseFloat(logForm.mattWeight)||null,mattBPSys:parseInt(logForm.mattBPSys)||null,mattBPDia:parseInt(logForm.mattBPDia)||null,aliceBPSys:parseInt(logForm.aliceBPSys)||null,aliceBPDia:parseInt(logForm.aliceBPDia)||null};
+    setHealthLog(h=>{const i=h.findIndex(x=>x.date===selDay);if(i>=0){const n=[...h];n[i]=entry;return n;}return [...h,entry].sort((a,b)=>a.date.localeCompare(b.date));});
     setSv({saving:true,saved:false,error:false});
-    try {
-      const row = {Date:entry.date,MattWeight:entry.mattWeight||"",MattBPSys:entry.mattBPSys||"",MattBPDia:entry.mattBPDia||"",AliceBPSys:entry.aliceBPSys||"",AliceBPDia:entry.aliceBPDia||""};
-      const res = await sheetsUpdate("HealthLog","Date",selDay,row);
-      if (!res.updated) await sheetsAppend("HealthLog",row);
-      setSv({saving:false,saved:true,error:false});
-      setTimeout(()=>setSv(s=>({...s,saved:false})),2500);
-    } catch(e){ console.error(e); setSv({saving:false,saved:false,error:true}); }
+    try{
+      const row={Date:entry.date,MattWeight:entry.mattWeight||"",MattBPSys:entry.mattBPSys||"",MattBPDia:entry.mattBPDia||"",AliceBPSys:entry.aliceBPSys||"",AliceBPDia:entry.aliceBPDia||""};
+      const res=await sheetsUpdate("HealthLog","Date",selDay,row);
+      if(!res.updated)await sheetsAppend("HealthLog",row);
+      setSv({saving:false,saved:true,error:false});setTimeout(()=>setSv(s=>({...s,saved:false})),2500);
+    }catch(e){console.error(e);setSv({saving:false,saved:false,error:true});}
   };
 
-  // Workout edit
+  const saveMeds = async () => {
+    setMeds({...medsForm});
+    setMedsSv({saving:true,saved:false,error:false});
+    try{
+      // Meds stored on each day row; update Monday row (convention)
+      await sheetsUpdate("Fitness","Day","Monday",{Day:"Monday",MuscleGroup:fitnessData.find(f=>f.day==="Monday")?.group||"",Exercises:fitnessData.find(f=>f.day==="Monday")?.exercises||"",AMmeds:medsForm.am,PMmeds:medsForm.pm});
+      setMedsSv({saving:false,saved:true,error:false});setTimeout(()=>setMedsSv(s=>({...s,saved:false})),2500);
+      setEditingMeds(false);
+    }catch(e){console.error(e);setMedsSv({saving:false,saved:false,error:true});}
+  };
+
   const startWktEdit = dayName => {
-    const fd = fitnessData.find(f=>f.day===dayName)||{group:"",exercises:""};
+    const fd=fitnessData.find(f=>f.day===dayName)||{group:"",exercises:""};
     setWktForm({group:fd.group,exercises:fd.exercises});
     setEditingWkt(dayName);
   };
   const saveWkt = async () => {
-    setFitnessData(fd => fd.map(f => f.day===editingWkt ? {...f,...wktForm} : f));
+    setFitnessData(fd=>fd.map(f=>f.day===editingWkt?{...f,...wktForm}:f));
     setWktSv({saving:true,saved:false,error:false});
-    try {
-      await sheetsUpdate("Fitness","Day",editingWkt,{Day:editingWkt,MuscleGroup:wktForm.group,Exercises:wktForm.exercises});
-      setWktSv({saving:false,saved:true,error:false});
-      setTimeout(()=>setWktSv(s=>({...s,saved:false})),2500);
-    } catch(e){ console.error(e); setWktSv({saving:false,saved:false,error:true}); }
+    try{
+      await sheetsUpdate("Fitness","Day",editingWkt,{Day:editingWkt,MuscleGroup:wktForm.group,Exercises:wktForm.exercises,AMmeds:meds.am,PMmeds:meds.pm});
+      setWktSv({saving:false,saved:true,error:false});setTimeout(()=>setWktSv(s=>({...s,saved:false})),2500);
+    }catch(e){console.error(e);setWktSv({saving:false,saved:false,error:true});}
     setEditingWkt(null);
   };
 
-  // Sparkline data (all time)
   const mw=healthLog.filter(h=>h.mattWeight).map(h=>h.mattWeight);
   const ms=healthLog.filter(h=>h.mattBPSys).map(h=>h.mattBPSys);
   const md=healthLog.filter(h=>h.mattBPDia).map(h=>h.mattBPDia);
   const as_=healthLog.filter(h=>h.aliceBPSys).map(h=>h.aliceBPSys);
   const ad=healthLog.filter(h=>h.aliceBPDia).map(h=>h.aliceBPDia);
 
-  // Selected day info
-  const [sy,sm,sd_] = selDay.split("-").map(Number);
-  const selDayName  = DAY_NAMES[new Date(sy,sm-1,sd_).getDay()];
-  const selFitness  = fitnessData.find(f=>f.day===selDayName) || {group:"Rest",exercises:""};
-  const selEntry    = healthLog.find(h=>h.date===selDay) || {};
-  const hasLog      = ds => healthLog.some(h=>h.date===ds&&(h.mattWeight||h.mattBPSys||h.aliceBPSys));
+  const selDayName = DAY_NAMES[parseDS(selDay).getDay()];
+  const selFitness = fitnessData.find(f=>f.day===selDayName)||{group:"Rest",exercises:""};
+  const selEntry   = healthLog.find(h=>h.date===selDay)||{};
+  const hasLog     = ds=>healthLog.some(h=>h.date===ds&&(h.mattWeight||h.mattBPSys||h.aliceBPSys));
 
   return (
     <div>
       <h2 style={H2}>Fitness & Health</h2>
 
-      {/* ── MEDS at top ── */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-        {[["☀️ AM",meds.am],["🌙 PM",meds.pm]].map(([l,v])=>(
-          <div key={l} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,193,7,0.2)",borderRadius:10,padding:"10px 13px"}}>
-            <div style={{fontSize:11,color:"#fbbf24",marginBottom:4,fontWeight:700}}>{l}</div>
-            <div style={{fontSize:12,color:"#d1d5db"}}>{v||<span style={{color:"#4b5563"}}>—</span>}</div>
+      {/* ── MEDS — editable ── */}
+      <div style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(251,191,36,0.2)",borderRadius:12,padding:14,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editingMeds?10:0}}>
+          <div style={{fontSize:12,color:"#fbbf24",fontWeight:700,letterSpacing:.5}}>💊 Medications & Supplements</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {editingMeds && <SaveBadge {...medsSv}/>}
+            <button onClick={()=>{if(!editingMeds)setMedsForm({...meds});setEditingMeds(e=>!e);}}
+              style={{...GB,fontSize:11,padding:"5px 10px"}}>{editingMeds?"✕ Cancel":"✏️ Edit"}</button>
           </div>
-        ))}
+        </div>
+
+        {editingMeds ? (
+          <div>
+            {[["☀️ AM","am"],["🌙 PM","pm"]].map(([label,key])=>(
+              <div key={key} style={{marginBottom:10}}>
+                <label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:4}}>{label}</label>
+                <input value={medsForm[key]} onChange={e=>setMedsForm(f=>({...f,[key]:e.target.value}))}
+                  placeholder={`${label} medications…`} style={INP}/>
+              </div>
+            ))}
+            <button onClick={saveMeds} style={{...PB,width:"100%"}}>
+              {medsSv.saving?"Saving…":"Save Medications"}
+            </button>
+          </div>
+        ) : (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
+            {[["☀️ AM",meds.am],["🌙 PM",meds.pm]].map(([l,v])=>(
+              <div key={l}>
+                <div style={{fontSize:10,color:"#fbbf24",marginBottom:3,fontWeight:600}}>{l}</div>
+                <div style={{fontSize:12,color:"#d1d5db"}}>{v||<span style={{color:"#4b5563",fontStyle:"italic"}}>Not set</span>}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* ── WEEKLY workout strip ── */}
+      {/* ── WEEKLY STRIP — Sun→Sat ── */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:11,color:"#9ca3af",marginBottom:7,textTransform:"uppercase",letterSpacing:.8}}>This Week — tap to log or edit</div>
+        <div style={{fontSize:11,color:"#9ca3af",marginBottom:7,textTransform:"uppercase",letterSpacing:.8}}>This Week — tap to log</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
-          {week.map(d => {
-            const ds       = localFmt(d);
-            const dayName  = DAY_NAMES[d.getDay()];
-            const fd       = fitnessData.find(f=>f.day===dayName)||{group:"—"};
-            const isToday  = ds===todayDS;
-            const isSel    = ds===selDay;
-            const logged   = hasLog(ds);
+          {week.map(d=>{
+            const ds=localFmt(d),dayName=DAY_NAMES[d.getDay()],isToday=ds===todayDS,isSel=ds===selDay,logged=hasLog(ds);
+            const fd=fitnessData.find(f=>f.day===dayName)||{group:"—"};
             return (
               <div key={ds} onClick={()=>openDay(ds)}
                 style={{background:isSel?"rgba(110,231,183,0.2)":isToday?"rgba(110,231,183,0.08)":"rgba(255,255,255,0.04)",
                   border:`1px solid ${isSel?"rgba(110,231,183,0.7)":isToday?"rgba(110,231,183,0.35)":"rgba(255,255,255,0.07)"}`,
-                  borderRadius:9,padding:"8px 4px",textAlign:"center",cursor:"pointer",transition:"all 0.12s"}}>
-                <div style={{fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:.5}}>{["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][(d.getDay()+6)%7]}</div>
+                  borderRadius:9,padding:"8px 3px",textAlign:"center",cursor:"pointer",transition:"all 0.12s"}}>
+                <div style={{fontSize:9,color:"#6b7280",textTransform:"uppercase",letterSpacing:.4}}>
+                  {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]}
+                </div>
                 <div style={{fontSize:14,fontWeight:700,color:isToday?"#6ee7b7":"#f0e6d3",margin:"3px 0"}}>{d.getDate()}</div>
                 <div style={{fontSize:8,color:isSel?"#6ee7b7":"#9ca3af",lineHeight:1.3}}>{fd.group.split(" ")[0]}</div>
-                {logged && <div style={{fontSize:7,color:"#6ee7b7",marginTop:3}}>●</div>}
+                {logged&&<div style={{fontSize:7,color:"#6ee7b7",marginTop:2}}>●</div>}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* ── Selected day panel ── */}
-      <div style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:12,padding:15,marginBottom:16}}>
-        {/* Workout header */}
+      {/* ── SELECTED DAY PANEL ── */}
+      <div style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.09)",borderRadius:12,padding:15,marginBottom:16}}>
+        {/* Workout */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
           <div>
-            <div style={{fontSize:11,color:"#6ee7b7",textTransform:"uppercase",letterSpacing:.8,marginBottom:2}}>{selDayName} · {dateLabel(selDay,{month:"short",day:"numeric"})}</div>
+            <div style={{fontSize:11,color:"#6ee7b7",textTransform:"uppercase",letterSpacing:.8,marginBottom:2}}>
+              {selDayName} · {dateLabel(selDay,{month:"short",day:"numeric"})}
+            </div>
             <div style={{fontSize:16,fontWeight:700,color:"#f0e6d3"}}>{selFitness.group}</div>
             <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{selFitness.exercises}</div>
           </div>
@@ -437,11 +518,10 @@ function Fitness() {
           </button>
         </div>
 
-        {/* Workout edit form */}
-        {editingWkt===selDayName && (
+        {editingWkt===selDayName&&(
           <div style={{background:"rgba(255,255,255,0.05)",borderRadius:10,padding:12,marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <span style={{fontSize:12,color:"#9ca3af"}}>Edit {selDayName}</span>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+              <span style={{fontSize:12,color:"#9ca3af"}}>Edit {selDayName}'s Workout</span>
               <SaveBadge {...wktSv}/>
             </div>
             <div style={{marginBottom:8}}>
@@ -449,14 +529,14 @@ function Fitness() {
               <input value={wktForm.group} onChange={e=>setWktForm(f=>({...f,group:e.target.value}))} style={INP}/>
             </div>
             <div style={{marginBottom:10}}>
-              <label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:3}}>Exercises (comma separated)</label>
+              <label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:3}}>Exercises</label>
               <input value={wktForm.exercises} onChange={e=>setWktForm(f=>({...f,exercises:e.target.value}))} style={INP}/>
             </div>
             <button onClick={saveWkt} style={PB}>Save Workout</button>
           </div>
         )}
 
-        {/* Log measurements */}
+        {/* Health log */}
         <div style={{borderTop:"1px solid rgba(255,255,255,0.07)",paddingTop:12}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
             <div style={{fontSize:12,color:"#9ca3af",fontWeight:600}}>Log Measurements</div>
@@ -466,9 +546,9 @@ function Fitness() {
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:12}}>
             {[["Weight","mattWeight","lbs"],["BP Sys","mattBPSys",""],["BP Dia","mattBPDia",""]].map(([l,k,u])=>(
               <div key={k}>
-                <label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:3}}>{l}{u&&<span style={{color:"#4b5563"}}> ({u})</span>}</label>
-                <input type="number" value={logForm[k]} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))} style={INP}
-                  placeholder={selEntry[k]||""}/>
+                <label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:3}}>{l}{u&&` (${u})`}</label>
+                <input type="number" value={logForm[k]} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))}
+                  placeholder={String(selEntry[k]||"")} style={INP}/>
               </div>
             ))}
           </div>
@@ -477,31 +557,29 @@ function Fitness() {
             {[["BP Sys","aliceBPSys"],["BP Dia","aliceBPDia"]].map(([l,k])=>(
               <div key={k}>
                 <label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:3}}>{l}</label>
-                <input type="number" value={logForm[k]} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))} style={INP}
-                  placeholder={selEntry[k]||""}/>
+                <input type="number" value={logForm[k]} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))}
+                  placeholder={String(selEntry[k]||"")} style={INP}/>
               </div>
             ))}
           </div>
-          <button onClick={saveLog} style={PB}>Save Entry</button>
+          <button onClick={saveLog} style={{...PB,width:"100%"}}>
+            {sv.saving?"Saving…":"Save Entry"}
+          </button>
         </div>
       </div>
 
-      {/* ── Trend sparklines (all time) ── */}
+      {/* ── ALL-TIME TRENDS ── */}
       <div>
         <div style={{fontSize:11,color:"#9ca3af",marginBottom:9,textTransform:"uppercase",letterSpacing:.8}}>All-Time Trends</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          {[
-            ["⚖️ Matt Weight", mw,  "#6ee7b7","lbs"],
-            ["❤️ Matt BP Sys", ms,  "#f87171","mmHg"],
-            ["🩺 Matt BP Dia", md,  "#fb923c","mmHg"],
-            ["❤️ Alice BP Sys",as_, "#f9a8d4","mmHg"],
-            ["🩺 Alice BP Dia",ad,  "#e879f9","mmHg"],
-          ].map(([label,data,color,unit])=>(
+          {[["⚖️ Matt Weight",mw,"#6ee7b7","lbs"],["❤️ Matt BP Sys",ms,"#f87171","mmHg"],
+            ["🩺 Matt BP Dia",md,"#fb923c","mmHg"],["❤️ Alice BP Sys",as_,"#f9a8d4","mmHg"],
+            ["🩺 Alice BP Dia",ad,"#e879f9","mmHg"]].map(([label,data,color,unit])=>(
             <div key={label} style={{background:"rgba(255,255,255,0.04)",borderRadius:10,padding:11}}>
               <div style={{fontSize:10,color:"#9ca3af",marginBottom:4}}>{label}</div>
               <div style={{fontSize:19,fontWeight:700,color,marginBottom:4}}>
-                {data.length ? data.at(-1) : <span style={{color:"#4b5563",fontSize:14}}>—</span>}
-                {data.length>0 && <span style={{fontSize:10,color:"#6b7280",marginLeft:3}}>{unit}</span>}
+                {data.length?data.at(-1):<span style={{color:"#4b5563",fontSize:14}}>—</span>}
+                {data.length>0&&<span style={{fontSize:10,color:"#6b7280",marginLeft:3}}>{unit}</span>}
               </div>
               <Sparkline data={data} color={color}/>
             </div>
@@ -679,12 +757,8 @@ function Books() {
           const ri=books.indexOf(b);
           if(editIdx===ri&&editBook)return(
             <div key={i} style={{background:"rgba(255,255,255,0.07)",borderRadius:10,padding:"12px 14px"}}>
-              {[["Title","title"],["Author","author"],["Category","category"]].map(([l,k])=>(
-                <div key={k} style={{marginBottom:7}}><label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:2}}>{l}</label>
-                <input value={editBook[k]} onChange={e=>setEditBook(eb=>({...eb,[k]:e.target.value}))} style={INP}/></div>
-              ))}
-              <div style={{marginBottom:10}}><label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:2}}>Status</label>
-              <select value={editBook.status} onChange={e=>setEditBook(eb=>({...eb,status:e.target.value}))} style={SEL}>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
+              {[["Title","title"],["Author","author"],["Category","category"]].map(([l,k])=>(<div key={k} style={{marginBottom:7}}><label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:2}}>{l}</label><input value={editBook[k]} onChange={e=>setEditBook(eb=>({...eb,[k]:e.target.value}))} style={INP}/></div>))}
+              <div style={{marginBottom:10}}><label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:2}}>Status</label><select value={editBook.status} onChange={e=>setEditBook(eb=>({...eb,status:e.target.value}))} style={SEL}>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
               <div style={{display:"flex",gap:8}}><button onClick={saveEdit} style={PB}>Save</button><button onClick={()=>setEditIdx(null)} style={GB}>Cancel</button></div>
             </div>
           );
@@ -701,12 +775,8 @@ function Books() {
       </div>
       {adding?(
         <div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:14,marginTop:12}}>
-          {[["Title","title"],["Author","author"],["Category","category"]].map(([l,k])=>(
-            <div key={k} style={{marginBottom:8}}><label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:3}}>{l}</label>
-            <input value={newBook[k]} onChange={e=>setNewBook(n=>({...n,[k]:e.target.value}))} style={INP}/></div>
-          ))}
-          <div style={{marginBottom:10}}><label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:3}}>Status</label>
-          <select value={newBook.status} onChange={e=>setNewBook(n=>({...n,status:e.target.value}))} style={SEL}>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
+          {[["Title","title"],["Author","author"],["Category","category"]].map(([l,k])=>(<div key={k} style={{marginBottom:8}}><label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:3}}>{l}</label><input value={newBook[k]} onChange={e=>setNewBook(n=>({...n,[k]:e.target.value}))} style={INP}/></div>))}
+          <div style={{marginBottom:10}}><label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:3}}>Status</label><select value={newBook.status} onChange={e=>setNewBook(n=>({...n,status:e.target.value}))} style={SEL}>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
           <div style={{display:"flex",gap:8}}><button onClick={add} style={PB}>Add</button><button onClick={()=>setAdding(false)} style={GB}>Cancel</button></div>
         </div>
       ):<button onClick={()=>setAdding(true)} style={{marginTop:12,width:"100%",background:"rgba(255,255,255,0.04)",border:"1px dashed rgba(255,255,255,0.15)",borderRadius:10,color:"#6b7280",padding:"10px",cursor:"pointer",fontSize:13}}>+ Add Book</button>}
@@ -745,43 +815,17 @@ function Activities() {
         <h2 style={{...H2,margin:0}}>Activities & Trips</h2>
         <button onClick={()=>setManagingTypes(m=>!m)} style={{...GB,fontSize:11,padding:"5px 10px"}}>{managingTypes?"Done":"⚙ Types"}</button>
       </div>
-      {managingTypes&&(
-        <div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:14,marginBottom:14}}>
-          <div style={{fontSize:12,color:"#9ca3af",marginBottom:10}}>Activity Types</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>{actTypes.map(t=><span key={t} style={{background:"rgba(255,255,255,0.08)",borderRadius:20,padding:"4px 10px",fontSize:12,color:"#d1d5db",display:"flex",alignItems:"center",gap:6}}>{t}<span onClick={()=>removeType(t)} style={{cursor:"pointer",color:"#6b7280",fontSize:14}}>×</span></span>)}</div>
-          <div style={{display:"flex",gap:8}}><input value={newType} onChange={e=>setNewType(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addType()} placeholder="New type…" style={{...INP,flex:1}}/><button onClick={addType} style={PB}>Add</button></div>
-        </div>
-      )}
+      {managingTypes&&(<div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:14,marginBottom:14}}><div style={{fontSize:12,color:"#9ca3af",marginBottom:10}}>Activity Types</div><div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>{actTypes.map(t=><span key={t} style={{background:"rgba(255,255,255,0.08)",borderRadius:20,padding:"4px 10px",fontSize:12,color:"#d1d5db",display:"flex",alignItems:"center",gap:6}}>{t}<span onClick={()=>removeType(t)} style={{cursor:"pointer",color:"#6b7280",fontSize:14}}>×</span></span>)}</div><div style={{display:"flex",gap:8}}><input value={newType} onChange={e=>setNewType(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addType()} placeholder="New type…" style={{...INP,flex:1}}/><button onClick={addType} style={PB}>Add</button></div></div>)}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>{statuses.map(s=><div key={s} style={{background:"rgba(255,255,255,0.05)",borderRadius:10,padding:"10px 12px",textAlign:"center"}}><div style={{fontSize:20,fontWeight:700,color:statusColor[s]}}>{activities.filter(a=>a.status===s).length}</div><div style={{fontSize:10,color:"#6b7280",marginTop:2}}>{s}</div></div>)}</div>
       <div style={{display:"flex",gap:5,marginBottom:12,flexWrap:"wrap"}}>{allFilters.map(f=><button key={f} onClick={()=>setFilter(f)} style={{background:filter===f?"#6ee7b7":"rgba(255,255,255,0.07)",color:filter===f?"#0f1c14":"#9ca3af",border:"none",borderRadius:20,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:filter===f?700:400}}>{f}</button>)}</div>
       <div style={{display:"flex",flexDirection:"column",gap:7}}>
         {filtered.map((a,i)=>{
           const ri=activities.indexOf(a);
-          if(editIdx===ri&&editAct)return(
-            <div key={i} style={{background:"rgba(255,255,255,0.07)",borderRadius:10,padding:"12px 14px"}}>
-              {[["Name","name"],["Date","date"]].map(([l,k])=>(<div key={k} style={{marginBottom:7}}><label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:2}}>{l}</label><input value={editAct[k]} onChange={e=>setEditAct(ea=>({...ea,[k]:e.target.value}))} style={INP}/></div>))}
-              {[["Type","type",actTypes],["Status","status",statuses]].map(([l,k,opts])=>(<div key={k} style={{marginBottom:8}}><label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:2}}>{l}</label><select value={editAct[k]} onChange={e=>setEditAct(ea=>({...ea,[k]:e.target.value}))} style={SEL}>{opts.map(o=><option key={o}>{o}</option>)}</select></div>))}
-              <div style={{display:"flex",gap:8}}><button onClick={saveEdit} style={PB}>Save</button><button onClick={()=>setEditIdx(null)} style={GB}>Cancel</button></div>
-            </div>
-          );
-          return(
-            <div key={i} style={{background:"rgba(255,255,255,0.05)",borderRadius:10,padding:"11px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{flex:1}}><div style={{fontWeight:600,color:"#f0e6d3",fontSize:14}}>{a.name}</div><div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{a.type}{a.date?` · ${a.date}`:""}</div></div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <div style={{fontSize:11,padding:"3px 9px",borderRadius:20,background:`${statusColor[a.status]}22`,color:statusColor[a.status],whiteSpace:"nowrap"}}>{a.status}</div>
-                <button onClick={()=>startEdit(ri)} style={{background:"transparent",border:"none",color:"#6b7280",cursor:"pointer",fontSize:14,padding:"2px 4px"}}>✏️</button>
-              </div>
-            </div>
-          );
+          if(editIdx===ri&&editAct)return(<div key={i} style={{background:"rgba(255,255,255,0.07)",borderRadius:10,padding:"12px 14px"}}>{[["Name","name"],["Date","date"]].map(([l,k])=>(<div key={k} style={{marginBottom:7}}><label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:2}}>{l}</label><input value={editAct[k]} onChange={e=>setEditAct(ea=>({...ea,[k]:e.target.value}))} style={INP}/></div>))}{[["Type","type",actTypes],["Status","status",statuses]].map(([l,k,opts])=>(<div key={k} style={{marginBottom:8}}><label style={{fontSize:10,color:"#6b7280",display:"block",marginBottom:2}}>{l}</label><select value={editAct[k]} onChange={e=>setEditAct(ea=>({...ea,[k]:e.target.value}))} style={SEL}>{opts.map(o=><option key={o}>{o}</option>)}</select></div>))}<div style={{display:"flex",gap:8}}><button onClick={saveEdit} style={PB}>Save</button><button onClick={()=>setEditIdx(null)} style={GB}>Cancel</button></div></div>);
+          return(<div key={i} style={{background:"rgba(255,255,255,0.05)",borderRadius:10,padding:"11px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{flex:1}}><div style={{fontWeight:600,color:"#f0e6d3",fontSize:14}}>{a.name}</div><div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{a.type}{a.date?` · ${a.date}`:""}</div></div><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{fontSize:11,padding:"3px 9px",borderRadius:20,background:`${statusColor[a.status]}22`,color:statusColor[a.status],whiteSpace:"nowrap"}}>{a.status}</div><button onClick={()=>startEdit(ri)} style={{background:"transparent",border:"none",color:"#6b7280",cursor:"pointer",fontSize:14,padding:"2px 4px"}}>✏️</button></div></div>);
         })}
       </div>
-      {adding?(
-        <div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:14,marginTop:12}}>
-          {[["Name","name"],["Date (optional)","date"]].map(([l,k])=>(<div key={k} style={{marginBottom:8}}><label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:3}}>{l}</label><input value={newAct[k]} onChange={e=>setNewAct(n=>({...n,[k]:e.target.value}))} style={INP}/></div>))}
-          {[["Type","type",actTypes],["Status","status",statuses]].map(([l,k,opts])=>(<div key={k} style={{marginBottom:8}}><label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:3}}>{l}</label><select value={newAct[k]} onChange={e=>setNewAct(n=>({...n,[k]:e.target.value}))} style={SEL}>{opts.map(o=><option key={o}>{o}</option>)}</select></div>))}
-          <div style={{display:"flex",gap:8}}><button onClick={add} style={PB}>Add</button><button onClick={()=>setAdding(false)} style={GB}>Cancel</button></div>
-        </div>
-      ):<button onClick={()=>setAdding(true)} style={{marginTop:12,width:"100%",background:"rgba(255,255,255,0.04)",border:"1px dashed rgba(255,255,255,0.15)",borderRadius:10,color:"#6b7280",padding:"10px",cursor:"pointer",fontSize:13}}>+ Add Activity</button>}
+      {adding?(<div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:14,marginTop:12}}>{[["Name","name"],["Date (optional)","date"]].map(([l,k])=>(<div key={k} style={{marginBottom:8}}><label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:3}}>{l}</label><input value={newAct[k]} onChange={e=>setNewAct(n=>({...n,[k]:e.target.value}))} style={INP}/></div>))}{[["Type","type",actTypes],["Status","status",statuses]].map(([l,k,opts])=>(<div key={k} style={{marginBottom:8}}><label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:3}}>{l}</label><select value={newAct[k]} onChange={e=>setNewAct(n=>({...n,[k]:e.target.value}))} style={SEL}>{opts.map(o=><option key={o}>{o}</option>)}</select></div>))}<div style={{display:"flex",gap:8}}><button onClick={add} style={PB}>Add</button><button onClick={()=>setAdding(false)} style={GB}>Cancel</button></div></div>):<button onClick={()=>setAdding(true)} style={{marginTop:12,width:"100%",background:"rgba(255,255,255,0.04)",border:"1px dashed rgba(255,255,255,0.15)",borderRadius:10,color:"#6b7280",padding:"10px",cursor:"pointer",fontSize:13}}>+ Add Activity</button>}
     </div>
   );
 }
@@ -789,7 +833,7 @@ function Activities() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // APP SHELL
 // ═══════════════════════════════════════════════════════════════════════════════
-const TABS=[{id:"weekly",label:"Weekly",icon:"📅"},{id:"todos",label:"To-Do",icon:"✅"},{id:"fitness",label:"Fitness",icon:"💪"},{id:"habits",label:"Habits",icon:"💚"},{id:"restaurants",label:"Food",icon:"🍽️"},{id:"movies",label:"Movies",icon:"🎬"},{id:"books",label:"Books",icon:"📚"},{id:"activities",label:"Activities",icon:"🗺️"}];
+const TABS=[{id:"weekly",label:"Calendar",icon:"📅"},{id:"todos",label:"To-Do",icon:"✅"},{id:"fitness",label:"Fitness",icon:"💪"},{id:"habits",label:"Habits",icon:"💚"},{id:"restaurants",label:"Food",icon:"🍽️"},{id:"movies",label:"Movies",icon:"🎬"},{id:"books",label:"Books",icon:"📚"},{id:"activities",label:"Activities",icon:"🗺️"}];
 const SECTIONS={weekly:WeeklyPlan,todos:Todos,fitness:Fitness,habits:Habits,restaurants:Restaurants,movies:Movies,books:Books,activities:Activities};
 
 export default function HomeBase() {
