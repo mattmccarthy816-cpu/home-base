@@ -38,45 +38,41 @@ async function sheetsUpsert(sheet, col, val, row) {
 
 // ── COLOR THEMES ────────────────────────────────────────────────────────────
 const THEMES = {
-  cerise: {
-    name:"Cerise",
-    accent:"#b5294e", accentBright:"#d4305a",
-    accentGlow:"rgba(181,41,78,0.2)", accentBorder:"rgba(181,41,78,0.55)",
-    accentSoft:"rgba(181,41,78,0.12)", accentText:"#f7afc3",
-    bg:"linear-gradient(135deg,#110810 0%,#1a0810 50%,#120810 100%)",
-    titleGrad:"linear-gradient(90deg,#d4305a,#f7afc3)",
+  red: {
+    name:"Red",
+    // Bordeaux — deep wine, jewel-toned, never alarm-red
+    accent:"#8b1a3a", accentBright:"#ab2249",
+    accentGlow:"rgba(139,26,58,0.22)", accentBorder:"rgba(139,26,58,0.58)",
+    accentSoft:"rgba(139,26,58,0.13)", accentText:"#f0b8cc",
+    bg:"linear-gradient(135deg,#0e0507 0%,#180810 50%,#110608 100%)",
+    titleGrad:"linear-gradient(90deg,#ab2249,#f0b8cc)",
   },
-  rhode: {
-    name:"Rhode",
-    accent:"#c0365a", accentBright:"#d94069",
-    accentGlow:"rgba(192,54,90,0.2)", accentBorder:"rgba(192,54,90,0.55)",
-    accentSoft:"rgba(192,54,90,0.12)", accentText:"#f9b8c8",
-    bg:"linear-gradient(135deg,#120810 0%,#1c0a12 50%,#130911 100%)",
-    titleGrad:"linear-gradient(90deg,#d94069,#f9b8c8)",
-  },
-  bordeaux: {
-    name:"Bordeaux",
-    accent:"#7d1a3a", accentBright:"#9e2249",
-    accentGlow:"rgba(125,26,58,0.25)", accentBorder:"rgba(125,26,58,0.6)",
-    accentSoft:"rgba(125,26,58,0.15)", accentText:"#e8a8bc",
-    bg:"linear-gradient(135deg,#0e0608 0%,#160810 50%,#100608 100%)",
-    titleGrad:"linear-gradient(90deg,#9e2249,#e8a8bc)",
-  },
-  forest: {
-    name:"Forest",
+  green: {
+    name:"Green",
+    // Forest — rich deep green
     accent:"#1a6b4a", accentBright:"#22885f",
     accentGlow:"rgba(26,107,74,0.2)", accentBorder:"rgba(26,107,74,0.5)",
     accentSoft:"rgba(26,107,74,0.12)", accentText:"#a7f3d0",
     bg:"linear-gradient(135deg,#0a1628 0%,#0a1c12 50%,#0f1c14 100%)",
     titleGrad:"linear-gradient(90deg,#22885f,#a7f3d0)",
   },
-  slate: {
-    name:"Slate",
+  blue: {
+    name:"Blue",
+    // Slate — deep indigo
     accent:"#3b5bdb", accentBright:"#4c6ef5",
     accentGlow:"rgba(59,91,219,0.2)", accentBorder:"rgba(59,91,219,0.5)",
     accentSoft:"rgba(59,91,219,0.12)", accentText:"#bac8ff",
     bg:"linear-gradient(135deg,#080d1a 0%,#0d1230 50%,#080d1a 100%)",
     titleGrad:"linear-gradient(90deg,#4c6ef5,#bac8ff)",
+  },
+  silver: {
+    name:"Silver",
+    // Cool platinum — elegant, neutral luxury
+    accent:"#7a8fa6", accentBright:"#96aec8",
+    accentGlow:"rgba(122,143,166,0.18)", accentBorder:"rgba(122,143,166,0.45)",
+    accentSoft:"rgba(122,143,166,0.1)", accentText:"#d4e4f0",
+    bg:"linear-gradient(135deg,#0a0c10 0%,#10141a 50%,#0c0f14 100%)",
+    titleGrad:"linear-gradient(90deg,#96aec8,#d4e4f0)",
   },
 };
 
@@ -130,7 +126,7 @@ function buildC(t) {
   };
 }
 // Fallback C for module-level style objects (overridden per-component via useC)
-let C = buildC(THEMES.cerise);
+let C = buildC(THEMES.red);
 
 // Style helpers — call with current C from useC()
 const mkPB  = C => ({background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:13});
@@ -162,6 +158,40 @@ function Sparkline({data,color}) {
   const pts=data.map((v,i)=>`${((i/(data.length-1))*w).toFixed(1)},${(h-((v-min)/range)*(h-8)-4).toFixed(1)}`).join(" ");
   const lp=pts.split(" ").at(-1).split(",");
   return <svg width={w} height={h}><polyline points={pts} fill="none" stroke={col} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx={lp[0]} cy={lp[1]} r="3.5" fill={col}/></svg>;
+}
+
+// BoundedSparkline: y-axis fixed to first value ± 20 units
+// so small fluctuations are visible and the line doesn't flatline
+function BoundedSparkline({data, color}) {
+  const col = color || C.accent;
+  if (!data||data.length<1) return <div style={{height:44,color:C.faint,fontSize:10,display:"flex",alignItems:"center"}}>no data yet</div>;
+  if (data.length<2) return (
+    <div style={{height:44,color:C.faint,fontSize:10,display:"flex",alignItems:"center"}}>
+      <span style={{color:col}}>●</span>&nbsp;1 entry
+    </div>
+  );
+  const baseline = data[0];
+  const yMin = baseline - 20;
+  const yMax = baseline + 20;
+  const range = yMax - yMin; // always 40
+  const w=110, h=44;
+  // Clamp values to the window so outliers don't break the scale
+  const clamp = v => Math.max(yMin, Math.min(yMax, v));
+  const pts = data.map((v,i)=>{
+    const x = ((i/(data.length-1))*w).toFixed(1);
+    const y = (h - ((clamp(v)-yMin)/range)*(h-8) - 4).toFixed(1);
+    return `${x},${y}`;
+  }).join(" ");
+  const lp = pts.split(" ").at(-1).split(",");
+  // Draw midline (baseline) as subtle reference
+  const midY = (h - ((baseline-yMin)/range)*(h-8) - 4).toFixed(1);
+  return (
+    <svg width={w} height={h}>
+      <line x1="0" y1={midY} x2={w} y2={midY} stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="3,3"/>
+      <polyline points={pts} fill="none" stroke={col} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx={lp[0]} cy={lp[1]} r="3.5" fill={col}/>
+    </svg>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -248,10 +278,10 @@ function WeeklyPlan() {
               border:`1px solid ${isSel?C.accentBorder:isToday?C.borderHi:C.border}`,
               borderRadius:7,padding:"5px 4px",cursor:"pointer",minHeight:72,transition:"all 0.12s"}}>
               <div style={{fontSize:12,fontWeight:700,color:isSel?C.accentText:isToday?"#fff":C.text,marginBottom:2}}>{d.getDate()}</div>
+              {e.appts    && <div style={{fontSize:8,color:C.appt,lineHeight:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📌 {e.appts.split("\n")[0]}</div>}
               {e.mattLoc  && <div style={{fontSize:8,color:C.matt,lineHeight:1.5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{locIcon(e.mattLoc)} Matt {e.mattLoc}</div>}
               {e.aliceLoc && <div style={{fontSize:8,color:C.alice,lineHeight:1.5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{locIcon(e.aliceLoc)} Alice {e.aliceLoc}</div>}
               {e.dinner   && <div style={{fontSize:8,color:C.dinner,lineHeight:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🍽 {e.dinner}</div>}
-              {e.appts    && <div style={{fontSize:8,color:C.appt,lineHeight:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📌 {e.appts.split("\n")[0]}</div>}
             </div>
           );
         })}
@@ -577,20 +607,29 @@ function Fitness() {
         </div>
       </div>
 
-      {/* TRENDS */}
+      {/* TRENDS — Matt strictly left, Alice strictly right, row by row */}
       <div style={{fontSize:11,color:C.muted,marginBottom:9,textTransform:"uppercase",letterSpacing:.8}}>All-Time Trends</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        {[["⚖️ Matt Weight",mw,C.accent,"lbs"],["❤️ Matt BP Sys",ms,C.matt,"mmHg"],
-          ["🩺 Matt BP Dia",md,"#fb923c","mmHg"],["❤️ Alice BP Sys",as_,C.alice,"mmHg"],
-          ["🩺 Alice BP Dia",ad,"#e879f9","mmHg"]].map(([label,data,color,unit])=>(
-          <div key={label} style={{background:C.card,borderRadius:10,padding:11}}>
-            <div style={{fontSize:10,color:C.muted,marginBottom:4}}>{label}</div>
-            <div style={{fontSize:19,fontWeight:700,color,marginBottom:4}}>
-              {data.length?data.at(-1):<span style={{color:C.faint,fontSize:14}}>—</span>}
-              {data.length>0&&<span style={{fontSize:10,color:C.dim,marginLeft:3}}>{unit}</span>}
-            </div>
-            <Sparkline data={data} color={color}/>
-          </div>
+        {/* Row 1: Matt Weight | Alice BP Sys */}
+        {[
+          {who:"Matt",label:"⚖️ Weight",    data:mw, color:C.accent,    unit:"lbs"},
+          {who:"Alice",label:"❤️ BP Sys",   data:as_,color:C.alice,     unit:"mmHg"},
+          {who:"Matt",label:"❤️ BP Sys",    data:ms, color:C.matt,      unit:"mmHg"},
+          {who:"Alice",label:"🩺 BP Dia",   data:ad, color:"#e879f9",   unit:"mmHg"},
+          {who:"Matt",label:"🩺 BP Dia",    data:md, color:"#fb923c",   unit:"mmHg"},
+          {who:"",label:"",data:[],color:"",unit:""},
+        ].map(({who,label,data,color,unit},i)=>(
+          who===""
+            ? <div key={i}/>
+            : <div key={i} style={{background:C.card,borderRadius:10,padding:11}}>
+                <div style={{fontSize:9,color:who==="Matt"?C.matt:C.alice,marginBottom:1,textTransform:"uppercase",letterSpacing:.5,fontWeight:700}}>{who}</div>
+                <div style={{fontSize:10,color:C.muted,marginBottom:4}}>{label}</div>
+                <div style={{fontSize:19,fontWeight:700,color,marginBottom:4}}>
+                  {data.length?data.at(-1):<span style={{color:C.faint,fontSize:14}}>—</span>}
+                  {data.length>0&&<span style={{fontSize:10,color:C.dim,marginLeft:3}}>{unit}</span>}
+                </div>
+                <BoundedSparkline data={data} color={color}/>
+              </div>
         ))}
       </div>
     </div>
@@ -918,7 +957,7 @@ const TABS=[{id:"weekly",label:"Calendar",icon:"📅"},{id:"todos",label:"To-Do"
 const SECTIONS={weekly:WeeklyPlan,todos:Todos,fitness:Fitness,habits:Habits,restaurants:Restaurants,movies:Movies,books:Books,activities:Activities};
 
 // Theme context — simple module-level so all components see it
-let _activeThemeKey = localStorage.getItem("hb-theme") || "cerise";
+let _activeThemeKey = localStorage.getItem("hb-theme") || "red";
 
 export default function HomeBase() {
   const [tab,setTab]=useState("weekly");
