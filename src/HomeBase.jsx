@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-
+ 
 const GAS   = "https://script.google.com/macros/s/AKfycbwMgO1moxl7GgsKr7jzfLGXztXrZZGGYI6DNFPj6knE35K11Yza2fcfm0wY9EMuHUDv/exec";
 const PROXY = "/api/sheets"; // Vercel serverless proxy — same origin, no CORS
-
+ 
 // ── SHEETS API ─────────────────────────────────────────────────────────────
 // Reads: browser → GAS directly (GET has no CORS restriction)
 // Writes: browser → /api/sheets (same-origin) → GAS server-side
@@ -35,7 +35,7 @@ async function sheetsUpsert(sheet, col, val, row) {
   const res = await sheetsUpdate(sheet, col, val, row);
   if (!res.updated) await sheetsAppend(sheet, row);
 }
-
+ 
 // ── COLOR THEMES ────────────────────────────────────────────────────────────
 const THEMES = {
   red: {
@@ -75,17 +75,17 @@ const THEMES = {
     titleGrad:"linear-gradient(90deg,#96aec8,#d4e4f0)",
   },
 };
-
+ 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const DEFAULT_TYPES = ["Local","Trip","Outdoor","Entertainment","Food","Other"];
-
+ 
 function localFmt(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 function todayStr() { return localFmt(new Date()); }
 function parseDS(ds) { const [y,m,d]=ds.split("-").map(Number); return new Date(y,m-1,d); }
-
+ 
 // Month grid Sun-start
 function monthDates(year, month) {
   const first = new Date(year, month, 1);
@@ -100,7 +100,7 @@ function weekDates() {
   return Array.from({length:7},(_,i)=>{ const d=new Date(now); d.setDate(now.getDate()-dow+i); return d; });
 }
 function dateLabel(ds, opts) { return ds ? parseDS(ds).toLocaleDateString("en-US",opts) : ""; }
-
+ 
 // ── DESIGN TOKENS (theme-reactive) ────────────────────────────────────────────
 // C is rebuilt from the active theme each render via useTheme()
 function buildC(t) {
@@ -127,7 +127,7 @@ function buildC(t) {
 }
 // Fallback C for module-level style objects (overridden per-component via useC)
 let C = buildC(THEMES.red);
-
+ 
 // Style helpers — call with current C from useC()
 const mkPB  = C => ({background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:13});
 const mkGB  = C => ({background:"transparent",color:C.muted,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:13});
@@ -143,14 +143,14 @@ const NB  = mkNB(C);
 const INP = mkINP(C);
 const SEL = mkSEL(C);
 const H2  = mkH2(C);
-
+ 
 function SaveBadge({saving,saved,error}) {
   if (saving) return <span style={{fontSize:11,color:C.muted}}>Saving…</span>;
   if (error)  return <span style={{fontSize:11,color:"#f87171"}}>⚠ Failed — check console</span>;
   if (saved)  return <span style={{fontSize:11,color:C.accentText}}>✓ Saved</span>;
   return null;
 }
-
+ 
 function Sparkline({data,color}) {
   const col = color || C.accent;
   if (!data||data.length<2) return <div style={{height:34,color:C.faint,fontSize:10,display:"flex",alignItems:"center"}}>no data yet</div>;
@@ -159,7 +159,7 @@ function Sparkline({data,color}) {
   const lp=pts.split(" ").at(-1).split(",");
   return <svg width={w} height={h}><polyline points={pts} fill="none" stroke={col} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx={lp[0]} cy={lp[1]} r="3.5" fill={col}/></svg>;
 }
-
+ 
 // BoundedSparkline: y-axis fixed to first value ± 20 units
 // so small fluctuations are visible and the line doesn't flatline
 function BoundedSparkline({data, color}) {
@@ -193,7 +193,7 @@ function BoundedSparkline({data, color}) {
     </svg>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CALENDAR
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -205,7 +205,7 @@ function WeeklyPlan() {
   const [sel,setSel]=useState(localFmt(now));
   const [editing,setEditing]=useState(false);
   const [sv,setSv]=useState({saving:false,saved:false,error:false});
-
+ 
   useEffect(()=>{
     sheetsRead("WeeklyPlan").then(rows=>{
       const map={};
@@ -213,19 +213,19 @@ function WeeklyPlan() {
       setPlan(map);
     }).catch(e=>console.error("Calendar load:",e));
   },[]);
-
+ 
   const days=monthDates(year,month);
   const todayDS=todayStr();
   const locIcon=loc=>loc==="Office"?"🏢":loc==="Home"?"🏠":"";
   const entry=plan[sel]||{mattLoc:"",aliceLoc:"",dinner:"",appts:""};
   const monthLabel=new Date(year,month,1).toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const selLabel=dateLabel(sel,{weekday:"long",month:"long",day:"numeric"});
-
+ 
   const prevMonth=()=>{if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1);};
   const nextMonth=()=>{if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1);};
   const selectDay=ds=>{ if(sel===ds){setEditing(e=>!e);}else{setSel(ds);setEditing(false);} };
   const setField=(key,val)=>setPlan(p=>({...p,[sel]:{...(p[sel]||{}),[key]:val}}));
-
+ 
   // Multiple appointments stored as newline-separated
   const apptList = (entry.appts||"").split("\n").filter(Boolean);
   const addAppt = () => {
@@ -242,7 +242,7 @@ function WeeklyPlan() {
     const arr = (entry.appts||"").split("\n").filter((_,idx)=>idx!==i);
     setField("appts", arr.join("\n"));
   };
-
+ 
   const saveDay=async()=>{
     const e=plan[sel]||{};
     const row={Date:sel,MattLocation:e.mattLoc||"",AliceLocation:e.aliceLoc||"",Dinner:e.dinner||"",Appointments:e.appts||""};
@@ -254,7 +254,7 @@ function WeeklyPlan() {
       setEditing(false);
     }catch(err){console.error("Calendar save:",err);setSv({saving:false,saved:false,error:true});}
   };
-
+ 
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
@@ -286,7 +286,7 @@ function WeeklyPlan() {
           );
         })}
       </div>
-
+ 
       <div style={{background:C.card,border:`1px solid ${editing?C.accentBorder:C.border}`,borderRadius:14,overflow:"hidden",transition:"border-color 0.2s"}}>
         <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div style={{flex:1}}>
@@ -310,7 +310,7 @@ function WeeklyPlan() {
             </button>
           </div>
         </div>
-
+ 
         {editing&&(
           <div style={{borderTop:`1px solid ${C.border}`,padding:"14px 16px"}}>
             {/* 1. Appointments (multiple) */}
@@ -330,7 +330,7 @@ function WeeklyPlan() {
                 </div>
               ))}
             </div>
-
+ 
             {/* 2. Work locations */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
               {[["Matt","mattLoc",C.matt],["Alice","aliceLoc",C.alice]].map(([name,key,color])=>(
@@ -353,14 +353,14 @@ function WeeklyPlan() {
                 </div>
               ))}
             </div>
-
+ 
             {/* 3. Dinner */}
             <div style={{marginBottom:12}}>
               <label style={{fontSize:11,color:C.dinner,fontWeight:600,display:"block",marginBottom:4}}>🍽 Dinner</label>
               <input value={entry.dinner||""} onChange={e=>setField("dinner",e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&saveDay()} placeholder="e.g. Pasta night" style={INP}/>
             </div>
-
+ 
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <button onClick={saveDay} style={{...PB,flex:1}}>{sv.saving?"Saving…":"Save Day"}</button>
               <SaveBadge {...sv}/>
@@ -371,7 +371,7 @@ function WeeklyPlan() {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TO-DO
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -412,7 +412,7 @@ function Todos() {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FITNESS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -438,7 +438,7 @@ function Fitness() {
   const [wktForm,setWktForm]=useState({group:"",exercises:""});
   const [sv,setSv]=useState({saving:false,saved:false,error:false});
   const [wktSv,setWktSv]=useState({saving:false,saved:false,error:false});
-
+ 
   useEffect(()=>{
     sheetsRead("Fitness").then(rows=>{
       if(rows.length){
@@ -449,10 +449,10 @@ function Fitness() {
     }).catch(e=>console.error("Fitness load:",e));
     sheetsRead("HealthLog").then(rows=>setHealthLog(rows.map(r=>({date:r.Date,mattWeight:parseFloat(r.MattWeight)||null,mattBPSys:parseInt(r.MattBPSys)||null,mattBPDia:parseInt(r.MattBPDia)||null,aliceBPSys:parseInt(r.AliceBPSys)||null,aliceBPDia:parseInt(r.AliceBPDia)||null})))).catch(e=>console.error("HealthLog load:",e));
   },[]);
-
+ 
   const week=weekDates();
   const openDay=ds=>{setSelDay(ds);const ex=healthLog.find(h=>h.date===ds)||{};setLogForm({mattWeight:ex.mattWeight||"",mattBPSys:ex.mattBPSys||"",mattBPDia:ex.mattBPDia||"",aliceBPSys:ex.aliceBPSys||"",aliceBPDia:ex.aliceBPDia||""});setEditingWkt(null);};
-
+ 
   const saveMeds=async()=>{
     setMeds({...medsForm});
     setMedsSv({saving:true,saved:false,error:false});
@@ -463,7 +463,7 @@ function Fitness() {
       setEditingMeds(false);
     }catch(e){console.error("Meds save:",e);setMedsSv({saving:false,saved:false,error:true});}
   };
-
+ 
   const saveLog=async()=>{
     const entry={date:selDay,mattWeight:parseFloat(logForm.mattWeight)||null,mattBPSys:parseInt(logForm.mattBPSys)||null,mattBPDia:parseInt(logForm.mattBPDia)||null,aliceBPSys:parseInt(logForm.aliceBPSys)||null,aliceBPDia:parseInt(logForm.aliceBPDia)||null};
     setHealthLog(h=>{const i=h.findIndex(x=>x.date===selDay);if(i>=0){const n=[...h];n[i]=entry;return n;}return[...h,entry].sort((a,b)=>a.date.localeCompare(b.date));});
@@ -474,7 +474,7 @@ function Fitness() {
       setSv({saving:false,saved:true,error:false});setTimeout(()=>setSv(s=>({...s,saved:false})),2500);
     }catch(e){console.error("HealthLog save:",e);setSv({saving:false,saved:false,error:true});}
   };
-
+ 
   const startWktEdit=dayName=>{const fd=fitnessData.find(f=>f.day===dayName)||{group:"",exercises:""};setWktForm({group:fd.group,exercises:fd.exercises});setEditingWkt(dayName);};
   const saveWkt=async()=>{
     setFitnessData(fd=>fd.map(f=>f.day===editingWkt?{...f,...wktForm}:f));
@@ -487,7 +487,7 @@ function Fitness() {
     }catch(e){console.error("Workout save:",e);setWktSv({saving:false,saved:false,error:true});}
     setEditingWkt(null);
   };
-
+ 
   const mw=healthLog.filter(h=>h.mattWeight).map(h=>h.mattWeight);
   const ms=healthLog.filter(h=>h.mattBPSys).map(h=>h.mattBPSys);
   const md=healthLog.filter(h=>h.mattBPDia).map(h=>h.mattBPDia);
@@ -497,14 +497,14 @@ function Fitness() {
   const selFitness=fitnessData.find(f=>f.day===selDayName)||{group:"Rest",exercises:""};
   const selEntry=healthLog.find(h=>h.date===selDay)||{};
   const hasLog=ds=>healthLog.some(h=>h.date===ds&&(h.mattWeight||h.mattBPSys||h.aliceBPSys));
-
+ 
   // Meds displayed as lines (support newline-separated multiple items)
   const medLines = s => (s||"").split(/[,\n]/).map(x=>x.trim()).filter(Boolean);
-
+ 
   return(
     <div>
       <h2 style={H2}>Fitness & Health</h2>
-
+ 
       {/* MEDS */}
       <div style={{background:C.card,border:`1px solid rgba(251,191,36,0.25)`,borderRadius:12,padding:14,marginBottom:16}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editingMeds?12:0}}>
@@ -539,7 +539,7 @@ function Fitness() {
           </div>
         )}
       </div>
-
+ 
       {/* WEEKLY STRIP */}
       <div style={{marginBottom:14}}>
         <div style={{fontSize:11,color:C.muted,marginBottom:7,textTransform:"uppercase",letterSpacing:.8}}>This Week — tap to log</div>
@@ -561,7 +561,7 @@ function Fitness() {
           })}
         </div>
       </div>
-
+ 
       {/* SELECTED DAY */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:15,marginBottom:16}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
@@ -606,7 +606,7 @@ function Fitness() {
           <button onClick={saveLog} style={{...PB,width:"100%"}}>{sv.saving?"Saving…":"Save Entry"}</button>
         </div>
       </div>
-
+ 
       {/* TRENDS — Matt strictly left, Alice strictly right, row by row */}
       <div style={{fontSize:11,color:C.muted,marginBottom:9,textTransform:"uppercase",letterSpacing:.8}}>All-Time Trends</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
@@ -635,7 +635,7 @@ function Fitness() {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HABITS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -684,7 +684,7 @@ function Habits() {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESTAURANTS — show saved favorites from sheet; search is placeholder until key added
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -695,12 +695,12 @@ function Restaurants() {
   const [filter,setFilter]=useState("All");
   const [adding,setAdding]=useState(false);
   const [newR,setNewR]=useState({name:"",cuisine:"",zip:"",rating:"",notes:""});
-
+ 
   useEffect(()=>{sheetsRead("Restaurants").then(rows=>setSaved(rows.map(r=>({name:r.Name,cuisine:r.Cuisine,zip:r.Zip,rating:r.Rating,notes:r.Notes})))).catch(e=>console.error(e));},[]);
-
+ 
   const cuisines=["All",...new Set(saved.map(r=>r.cuisine).filter(Boolean))];
   const filtered=filter==="All"?saved:saved.filter(r=>r.cuisine===filter);
-
+ 
   // Real Places API search — replace PLACES_KEY with your actual key
   const PLACES_KEY = "YOUR_PLACES_API_KEY_HERE";
   const search=async()=>{
@@ -724,15 +724,15 @@ function Restaurants() {
     } catch(e){console.error(e);}
     setSearching(false);
   };
-
+ 
   const saveToSheet=async r=>{setSaved(s=>[...s,r]);try{await sheetsAppend("Restaurants",{Name:r.name,Cuisine:r.cuisine,Zip:r.zip,Rating:r.rating,Notes:r.notes});}catch(e){console.error(e);}};
-
+ 
   const addManual=async()=>{
     if(!newR.name.trim())return;
     const r={...newR};setSaved(s=>[...s,r]);setNewR({name:"",cuisine:"",zip:"",rating:"",notes:""});setAdding(false);
     try{await sheetsAppend("Restaurants",{Name:r.name,Cuisine:r.cuisine,Zip:r.zip,Rating:r.rating,Notes:r.notes});}catch(e){console.error(e);}
   };
-
+ 
   return(
     <div>
       <h2 style={H2}>Restaurants</h2>
@@ -753,7 +753,7 @@ function Restaurants() {
           </div>
         ))}</div>}
       </div>
-
+ 
       <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
         {cuisines.map(c=><button key={c} onClick={()=>setFilter(c)} style={{background:filter===c?C.accent:"rgba(255,255,255,0.07)",color:filter===c?"#fff":C.muted,border:"none",borderRadius:20,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:filter===c?700:400}}>{c}</button>)}
       </div>
@@ -778,7 +778,7 @@ function Restaurants() {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MOVIES — AI recs via Anthropic API (browser-accessible endpoint)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -788,7 +788,7 @@ function Movies() {
   const [aiError,setAiError]=useState("");
   const [filter,setFilter]=useState("All");
   useEffect(()=>{sheetsRead("Movies").then(rows=>setMovies(rows.map(r=>({title:r.Title,genre:r.Genre,where:r.Where,status:r.Status,rating:r.Rating||null})))).catch(e=>console.error(e));},[]);
-
+ 
   const getAiRecs=async()=>{
     if(!aiPrompt.trim())return;
     setAiLoading(true);setAiError("");setAiRecs([]);
@@ -813,11 +813,11 @@ function Movies() {
     }
     setAiLoading(false);
   };
-
+ 
   const addToList=async m=>{const e={title:m.title,genre:m.genre,where:m.where,status:"Want to watch",rating:null};setMovies(mv=>[...mv,e]);try{await sheetsAppend("Movies",{Title:e.title,Genre:e.genre,Where:e.where,Status:e.status,Rating:""});}catch(e){console.error(e);}};
   const statuses=["All","Want to watch","Watched"];
   const filtered=filter==="All"?movies:movies.filter(m=>m.status===filter);
-
+ 
   return(
     <div>
       <h2 style={H2}>Movies</h2>
@@ -847,7 +847,7 @@ function Movies() {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BOOKS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -903,7 +903,7 @@ function Books() {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ACTIVITIES
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -949,29 +949,27 @@ function Activities() {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════════
 // APP SHELL — with theme picker
 // ═══════════════════════════════════════════════════════════════════════════════
 const TABS=[{id:"weekly",label:"Calendar",icon:"📅"},{id:"todos",label:"To-Do",icon:"✅"},{id:"fitness",label:"Fitness",icon:"💪"},{id:"habits",label:"Habits",icon:"💚"},{id:"restaurants",label:"Food",icon:"🍽️"},{id:"movies",label:"Movies",icon:"🎬"},{id:"books",label:"Books",icon:"📚"},{id:"activities",label:"Activities",icon:"🗺️"}];
 const SECTIONS={weekly:WeeklyPlan,todos:Todos,fitness:Fitness,habits:Habits,restaurants:Restaurants,movies:Movies,books:Books,activities:Activities};
-
-// Theme context — simple module-level so all components see it
-let _activeThemeKey = localStorage.getItem("hb-theme") || "red";
-
+ 
 export default function HomeBase() {
   const [tab,setTab]=useState("weekly");
-  const [themeKey,setThemeKey]=useState(_activeThemeKey);
+  const [themeKey,setThemeKey]=useState(() => {
+    try { return localStorage.getItem("hb-theme") || "red"; } catch { return "red"; }
+  });
   const [showThemes,setShowThemes]=useState(false);
-  const theme = THEMES[themeKey] || THEMES.cerise;
+  const theme = THEMES[themeKey] || THEMES.red;
   // Update module-level C so all child components pick it up
   C = buildC(theme);
-  _activeThemeKey = themeKey;
-
+ 
   const Section=SECTIONS[tab];
   const todayLabel=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const pickTheme = key => { setThemeKey(key); localStorage.setItem("hb-theme",key); setShowThemes(false); };
-
+ 
   return(
     <div style={{minHeight:"100vh",background:theme.bg,fontFamily:"'DM Sans',sans-serif",color:C.text}}>
       <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
@@ -1023,3 +1021,4 @@ export default function HomeBase() {
     </div>
   );
 }
+ 
