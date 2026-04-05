@@ -1,0 +1,10 @@
+{
+  "rewrites": [
+    { "source": "/api/sheets", "destination": "/api/sheets.js" }
+  ],
+  "functions": {
+    "api/sheets.js": {
+      "runtime": "nodejs20.x"
+    }
+  }
+}
