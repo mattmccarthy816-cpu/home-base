@@ -1,40 +1,32 @@
 import { useState, useEffect } from "react";
 
-const GAS = "https://script.google.com/macros/s/AKfycbwMgO1moxl7GgsKr7jzfLGXztXrZZGGYI6DNFPj6knE35K11Yza2fcfm0wY9EMuHUDv/exec";
+const GAS   = "https://script.google.com/macros/s/AKfycbwMgO1moxl7GgsKr7jzfLGXztXrZZGGYI6DNFPj6knE35K11Yza2fcfm0wY9EMuHUDv/exec";
+const PROXY = "/api/sheets"; // Vercel serverless proxy — same origin, no CORS
 
-// ── SHEETS API ────────────────────────────────────────────────────────────────
-// Reads use GET (works fine). Writes use POST form-encoded so Apps Script
-// sees e.parameter correctly without URL-length issues.
+// ── SHEETS API ─────────────────────────────────────────────────────────────
+// Reads: browser → GAS directly (GET has no CORS restriction)
+// Writes: browser → /api/sheets (same-origin) → GAS server-side
 async function sheetsRead(sheet) {
   const r = await fetch(`${GAS}?action=read&sheet=${encodeURIComponent(sheet)}`);
   const j = await r.json();
   if (!j.success) throw new Error(j.error);
   return j.data;
 }
-
 async function sheetsWrite(action, sheet, extra = {}) {
-  const params = new URLSearchParams({ action, sheet, ...extra });
-  // Apps Script deployed as "Anyone" handles POST via doPost(e)
-  // We send as application/x-www-form-urlencoded so e.parameter works
-  const r = await fetch(GAS, {
+  const r = await fetch(PROXY, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, sheet, ...extra }),
   });
   const j = await r.json();
   if (!j.success) throw new Error(j.error);
   return j.data;
 }
-
 async function sheetsAppend(sheet, row) {
   return sheetsWrite("appendRow", sheet, { data: JSON.stringify(row) });
 }
 async function sheetsUpdate(sheet, col, val, row) {
-  return sheetsWrite("updateRow", sheet, {
-    matchCol: col,
-    matchVal: String(val),
-    data: JSON.stringify(row),
-  });
+  return sheetsWrite("updateRow", sheet, { matchCol: col, matchVal: String(val), data: JSON.stringify(row) });
 }
 async function sheetsDelete(sheet, col, val) {
   return sheetsWrite("deleteRow", sheet, { matchCol: col, matchVal: String(val) });
@@ -43,6 +35,50 @@ async function sheetsUpsert(sheet, col, val, row) {
   const res = await sheetsUpdate(sheet, col, val, row);
   if (!res.updated) await sheetsAppend(sheet, row);
 }
+
+// ── COLOR THEMES ────────────────────────────────────────────────────────────
+const THEMES = {
+  cerise: {
+    name:"Cerise",
+    accent:"#b5294e", accentBright:"#d4305a",
+    accentGlow:"rgba(181,41,78,0.2)", accentBorder:"rgba(181,41,78,0.55)",
+    accentSoft:"rgba(181,41,78,0.12)", accentText:"#f7afc3",
+    bg:"linear-gradient(135deg,#110810 0%,#1a0810 50%,#120810 100%)",
+    titleGrad:"linear-gradient(90deg,#d4305a,#f7afc3)",
+  },
+  rhode: {
+    name:"Rhode",
+    accent:"#c0365a", accentBright:"#d94069",
+    accentGlow:"rgba(192,54,90,0.2)", accentBorder:"rgba(192,54,90,0.55)",
+    accentSoft:"rgba(192,54,90,0.12)", accentText:"#f9b8c8",
+    bg:"linear-gradient(135deg,#120810 0%,#1c0a12 50%,#130911 100%)",
+    titleGrad:"linear-gradient(90deg,#d94069,#f9b8c8)",
+  },
+  bordeaux: {
+    name:"Bordeaux",
+    accent:"#7d1a3a", accentBright:"#9e2249",
+    accentGlow:"rgba(125,26,58,0.25)", accentBorder:"rgba(125,26,58,0.6)",
+    accentSoft:"rgba(125,26,58,0.15)", accentText:"#e8a8bc",
+    bg:"linear-gradient(135deg,#0e0608 0%,#160810 50%,#100608 100%)",
+    titleGrad:"linear-gradient(90deg,#9e2249,#e8a8bc)",
+  },
+  forest: {
+    name:"Forest",
+    accent:"#1a6b4a", accentBright:"#22885f",
+    accentGlow:"rgba(26,107,74,0.2)", accentBorder:"rgba(26,107,74,0.5)",
+    accentSoft:"rgba(26,107,74,0.12)", accentText:"#a7f3d0",
+    bg:"linear-gradient(135deg,#0a1628 0%,#0a1c12 50%,#0f1c14 100%)",
+    titleGrad:"linear-gradient(90deg,#22885f,#a7f3d0)",
+  },
+  slate: {
+    name:"Slate",
+    accent:"#3b5bdb", accentBright:"#4c6ef5",
+    accentGlow:"rgba(59,91,219,0.2)", accentBorder:"rgba(59,91,219,0.5)",
+    accentSoft:"rgba(59,91,219,0.12)", accentText:"#bac8ff",
+    bg:"linear-gradient(135deg,#080d1a 0%,#0d1230 50%,#080d1a 100%)",
+    titleGrad:"linear-gradient(90deg,#4c6ef5,#bac8ff)",
+  },
+};
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -69,42 +105,48 @@ function weekDates() {
 }
 function dateLabel(ds, opts) { return ds ? parseDS(ds).toLocaleDateString("en-US",opts) : ""; }
 
-// ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
-// Accent: Le Creuset-inspired deep flame red — warm, rich, confident.
-// Used like the green was: glows, borders, active states. Not alarm-red.
-// Think Marseille red, not stop-sign red.
-const C = {
-  // Primary accent — deep warm flame
-  accent:      "#c94f2c",       // Le Creuset flame / persimmon
-  accentBright:"#e05c30",       // lighter hover state
-  accentGlow:  "rgba(201,79,44,0.22)",
-  accentBorder:"rgba(201,79,44,0.5)",
-  accentSoft:  "rgba(201,79,44,0.12)",
-  accentText:  "#f4c4ab",       // warm light text on accent bg
+// ── DESIGN TOKENS (theme-reactive) ────────────────────────────────────────────
+// C is rebuilt from the active theme each render via useTheme()
+function buildC(t) {
+  return {
+    accent:      t.accent,
+    accentBright:t.accentBright,
+    accentGlow:  t.accentGlow,
+    accentBorder:t.accentBorder,
+    accentSoft:  t.accentSoft,
+    accentText:  t.accentText,
+    matt:    "#93c5fd",
+    alice:   "#f9a8d4",
+    dinner:  "#fcd34d",
+    appt:    "#fb923c",
+    text:    "#f0e6d3",
+    muted:   "#9ca3af",
+    dim:     "#6b7280",
+    faint:   "#4b5563",
+    card:    "rgba(255,255,255,0.05)",
+    cardHi:  "rgba(255,255,255,0.08)",
+    border:  "rgba(255,255,255,0.09)",
+    borderHi:"rgba(255,255,255,0.15)",
+  };
+}
+// Fallback C for module-level style objects (overridden per-component via useC)
+let C = buildC(THEMES.cerise);
 
-  // Secondary — kept for Matt (blue) and Alice (pink)
-  matt:   "#93c5fd",
-  alice:  "#f9a8d4",
-  dinner: "#fcd34d",
-  appt:   "#fb923c",
-
-  text:   "#f0e6d3",
-  muted:  "#9ca3af",
-  dim:    "#6b7280",
-  faint:  "#4b5563",
-
-  card:   "rgba(255,255,255,0.05)",
-  cardHi: "rgba(255,255,255,0.08)",
-  border: "rgba(255,255,255,0.09)",
-  borderHi:"rgba(255,255,255,0.15)",
-};
-
-const PB  = {background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:13};
-const GB  = {background:"transparent",color:C.muted,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:13};
-const NB  = {background:"rgba(255,255,255,0.07)",border:`1px solid ${C.border}`,borderRadius:6,color:C.text,width:30,height:30,cursor:"pointer",fontSize:18,padding:0,lineHeight:"30px",textAlign:"center"};
-const INP = {background:"rgba(255,255,255,0.08)",border:`1px solid ${C.border}`,borderRadius:7,color:C.text,padding:"8px 11px",fontSize:13,outline:"none",width:"100%",boxSizing:"border-box"};
-const SEL = {width:"100%",background:"#1f2937",border:`1px solid ${C.border}`,borderRadius:6,color:C.text,padding:"7px 10px",fontSize:13,outline:"none"};
-const H2  = {color:C.text,fontFamily:"'Playfair Display',serif",margin:"0 0 14px",fontSize:20};
+// Style helpers — call with current C from useC()
+const mkPB  = C => ({background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:13});
+const mkGB  = C => ({background:"transparent",color:C.muted,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:13});
+const mkNB  = C => ({background:"rgba(255,255,255,0.07)",border:`1px solid ${C.border}`,borderRadius:6,color:C.text,width:30,height:30,cursor:"pointer",fontSize:18,padding:0,lineHeight:"30px",textAlign:"center"});
+const mkINP = C => ({background:"rgba(255,255,255,0.08)",border:`1px solid ${C.border}`,borderRadius:7,color:C.text,padding:"8px 11px",fontSize:13,outline:"none",width:"100%",boxSizing:"border-box"});
+const mkSEL = C => ({width:"100%",background:"#1f2937",border:`1px solid ${C.border}`,borderRadius:6,color:C.text,padding:"7px 10px",fontSize:13,outline:"none"});
+const mkH2  = C => ({color:C.text,fontFamily:"'Playfair Display',serif",margin:"0 0 14px",fontSize:20});
+// Shorthands used inline — these use the module-level C which gets overridden per-app-render
+// Components call useC() to get theme-aware versions
+const PB  = mkPB(C);
+const GB  = mkGB(C);
+const NB  = mkNB(C);
+const INP = mkINP(C);
+const SEL = mkSEL(C);
+const H2  = mkH2(C);
 
 function SaveBadge({saving,saved,error}) {
   if (saving) return <span style={{fontSize:11,color:C.muted}}>Saving…</span>;
@@ -870,32 +912,63 @@ function Activities() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// APP SHELL
+// APP SHELL — with theme picker
 // ═══════════════════════════════════════════════════════════════════════════════
 const TABS=[{id:"weekly",label:"Calendar",icon:"📅"},{id:"todos",label:"To-Do",icon:"✅"},{id:"fitness",label:"Fitness",icon:"💪"},{id:"habits",label:"Habits",icon:"💚"},{id:"restaurants",label:"Food",icon:"🍽️"},{id:"movies",label:"Movies",icon:"🎬"},{id:"books",label:"Books",icon:"📚"},{id:"activities",label:"Activities",icon:"🗺️"}];
 const SECTIONS={weekly:WeeklyPlan,todos:Todos,fitness:Fitness,habits:Habits,restaurants:Restaurants,movies:Movies,books:Books,activities:Activities};
 
+// Theme context — simple module-level so all components see it
+let _activeThemeKey = localStorage.getItem("hb-theme") || "cerise";
+
 export default function HomeBase() {
   const [tab,setTab]=useState("weekly");
+  const [themeKey,setThemeKey]=useState(_activeThemeKey);
+  const [showThemes,setShowThemes]=useState(false);
+  const theme = THEMES[themeKey] || THEMES.cerise;
+  // Update module-level C so all child components pick it up
+  C = buildC(theme);
+  _activeThemeKey = themeKey;
+
   const Section=SECTIONS[tab];
   const todayLabel=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  const pickTheme = key => { setThemeKey(key); localStorage.setItem("hb-theme",key); setShowThemes(false); };
+
   return(
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0d1117 0%,#1a1008 50%,#120d08 100%)",fontFamily:"'DM Sans',sans-serif",color:C.text}}>
+    <div style={{minHeight:"100vh",background:theme.bg,fontFamily:"'DM Sans',sans-serif",color:C.text}}>
       <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
       <div style={{padding:"14px 14px 10px",borderBottom:`1px solid ${C.border}`,background:"rgba(0,0,0,0.3)",backdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:10}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <div>
             <div style={{fontSize:20,fontWeight:700,fontFamily:"'Playfair Display',serif",
-              background:`linear-gradient(90deg,${C.accentBright},#f4c4ab)`,
-              WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",lineHeight:1}}>Home Base</div>
+              background:theme.titleGrad,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",lineHeight:1}}>Home Base</div>
             <div style={{fontSize:10,color:C.dim,marginTop:1}}>{todayLabel}</div>
           </div>
-          <div style={{fontSize:11,color:C.faint,background:"rgba(255,255,255,0.05)",padding:"4px 10px",borderRadius:20}}>Matt & Alice</div>
+          {/* Theme picker */}
+          <div style={{position:"relative"}}>
+            <button onClick={()=>setShowThemes(s=>!s)}
+              style={{background:C.accentGlow,border:`1px solid ${C.accentBorder}`,borderRadius:20,padding:"5px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:7}}>
+              <span style={{width:12,height:12,borderRadius:"50%",background:theme.accent,display:"inline-block",flexShrink:0}}/>
+              <span style={{fontSize:11,color:C.accentText,fontWeight:600}}>{theme.name}</span>
+            </button>
+            {showThemes&&(
+              <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"#1a0d10",border:`1px solid ${C.accentBorder}`,borderRadius:12,padding:10,minWidth:140,zIndex:100,boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
+                <div style={{fontSize:10,color:C.dim,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>Theme</div>
+                {Object.entries(THEMES).map(([key,t])=>(
+                  <button key={key} onClick={()=>pickTheme(key)}
+                    style={{width:"100%",display:"flex",alignItems:"center",gap:10,background:themeKey===key?"rgba(255,255,255,0.08)":"transparent",border:"none",borderRadius:8,padding:"8px 10px",cursor:"pointer",marginBottom:3}}>
+                    <span style={{width:14,height:14,borderRadius:"50%",background:t.accent,display:"inline-block",flexShrink:0,border:themeKey===key?"2px solid #fff":"2px solid transparent"}}/>
+                    <span style={{fontSize:12,color:themeKey===key?"#fff":C.muted}}>{t.name}</span>
+                    {themeKey===key&&<span style={{marginLeft:"auto",fontSize:10,color:C.accentText}}>✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5}}>
           {TABS.map(t=>{
             const active=tab===t.id;
-            return <button key={t.id} onClick={()=>setTab(t.id)}
+            return <button key={t.id} onClick={()=>{setTab(t.id);setShowThemes(false);}}
               style={{background:active?C.accentGlow:"rgba(255,255,255,0.04)",
                 border:`1px solid ${active?C.accentBorder:C.border}`,
                 borderRadius:9,padding:"7px 4px",cursor:"pointer",
@@ -907,7 +980,7 @@ export default function HomeBase() {
           })}
         </div>
       </div>
-      <div style={{padding:"16px 14px 48px",maxWidth:820,margin:"0 auto"}}><Section/></div>
+      <div style={{padding:"16px 14px 48px",maxWidth:820,margin:"0 auto"}}><Section key={themeKey}/></div>
     </div>
   );
 }
